@@ -1,18 +1,8 @@
-.env 
 appsettings.Development.json
-//appsettings.{Example}.json
 
 // .Net
-.vs/
-.vscode/
-bin/
-obj/
-out/
-*.user
-*.userosscache
-*.sln.docattachments
-*.suo
-*.userprefs
+backend/bin/
+backend/obj/
 
 // Flutter/Dart
 //TODO - add flutter/ dart and android files to ignore
