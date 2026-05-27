@@ -7,4 +7,5 @@ public interface IUserService
 {
     Task<ServiceResult<UserResponse>> GetByIdAsync(Guid userId);
     Task<ServiceResult<UserResponse>> UpdateAsync(Guid userId, UpdateUserRequest request);
+    Task<ServiceResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
 }
