@@ -12,6 +12,7 @@ public class SmartFinanceDbContext(DbContextOptions<SmartFinanceDbContext> optio
     public DbSet<UserGroup> UserGroups { get; set; } = null!;
     public DbSet<TransactionCategory> TransactionCategories { get; set; } = null!;
     public DbSet<AccountGroup> AccountGroups { get; set; } = null!;
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +30,10 @@ public class SmartFinanceDbContext(DbContextOptions<SmartFinanceDbContext> optio
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
+            .IsUnique();
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasIndex(rt => rt.Token)
             .IsUnique();
     }
 }
