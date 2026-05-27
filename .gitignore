@@ -1,5 +1,5 @@
 # .NET
 src/backend/bin/
 src/backend/obj/
-src/backend/appsettings.Development.json
+src/backend/appsettings.json
 
