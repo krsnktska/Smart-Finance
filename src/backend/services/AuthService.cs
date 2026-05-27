@@ -28,7 +28,7 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
         };
 
         context.Users.Add(user);
-        var refreshTokenValue = await CreateRefreshTokenAsync(user);
+        var refreshTokenValue = CreateRefreshToken(user);
         await context.SaveChangesAsync();
 
         return ServiceResult<AuthResponse>.Ok(
@@ -42,7 +42,7 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
         if (user is null || !BCrypt.Net.BCrypt.EnhancedVerify(request.Password, user.PasswordHash))
             return ServiceResult<AuthResponse>.Unauthorized();
 
-        var refreshTokenValue = await CreateRefreshTokenAsync(user);
+        var refreshTokenValue = CreateRefreshToken(user);
         await context.SaveChangesAsync();
 
         return ServiceResult<AuthResponse>.Ok(
@@ -59,7 +59,7 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
             return ServiceResult<AuthResponse>.Unauthorized();
 
         token.IsRevoked = true;
-        var newRefreshTokenValue = await CreateRefreshTokenAsync(token.User);
+        var newRefreshTokenValue = CreateRefreshToken(token.User);
         await context.SaveChangesAsync();
 
         return ServiceResult<AuthResponse>.Ok(
@@ -79,7 +79,7 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
         return ServiceResult.Ok();
     }
 
-    private async Task<string> CreateRefreshTokenAsync(User user)
+    private string CreateRefreshToken(User user)
     {
         var tokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         context.RefreshTokens.Add(new RefreshToken
