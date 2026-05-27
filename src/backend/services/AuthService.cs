@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -27,9 +28,11 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
         };
 
         context.Users.Add(user);
+        var refreshTokenValue = await CreateRefreshTokenAsync(user);
         await context.SaveChangesAsync();
 
-        return ServiceResult<AuthResponse>.Ok(new AuthResponse(GenerateToken(user), MapUser(user)));
+        return ServiceResult<AuthResponse>.Ok(
+            new AuthResponse(GenerateAccessToken(user), refreshTokenValue, MapUser(user)));
     }
 
     public async Task<ServiceResult<AuthResponse>> LoginAsync(LoginRequest request)
@@ -39,10 +42,58 @@ public class AuthService(SmartFinanceDbContext context, IConfiguration configura
         if (user is null || !BCrypt.Net.BCrypt.EnhancedVerify(request.Password, user.PasswordHash))
             return ServiceResult<AuthResponse>.Unauthorized();
 
-        return ServiceResult<AuthResponse>.Ok(new AuthResponse(GenerateToken(user), MapUser(user)));
+        var refreshTokenValue = await CreateRefreshTokenAsync(user);
+        await context.SaveChangesAsync();
+
+        return ServiceResult<AuthResponse>.Ok(
+            new AuthResponse(GenerateAccessToken(user), refreshTokenValue, MapUser(user)));
     }
 
-    private string GenerateToken(User user)
+    public async Task<ServiceResult<AuthResponse>> RefreshAsync(string refreshToken)
+    {
+        var token = await context.RefreshTokens
+            .Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+        if (token is null || token.IsRevoked || token.ExpiresAt <= DateTimeOffset.UtcNow)
+            return ServiceResult<AuthResponse>.Unauthorized();
+
+        token.IsRevoked = true;
+        var newRefreshTokenValue = await CreateRefreshTokenAsync(token.User);
+        await context.SaveChangesAsync();
+
+        return ServiceResult<AuthResponse>.Ok(
+            new AuthResponse(GenerateAccessToken(token.User), newRefreshTokenValue, MapUser(token.User)));
+    }
+
+    public async Task<ServiceResult> RevokeAsync(string refreshToken)
+    {
+        var token = await context.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+        if (token is null) return ServiceResult.NotFound();
+
+        token.IsRevoked = true;
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
+    private async Task<string> CreateRefreshTokenAsync(User user)
+    {
+        var tokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        context.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            Token = tokenValue,
+            UserId = user.Id,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        return tokenValue;
+    }
+
+    private string GenerateAccessToken(User user)
     {
         var jwtSection = configuration.GetSection("Jwt");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]!));
