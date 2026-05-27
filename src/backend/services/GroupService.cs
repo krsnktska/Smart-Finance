@@ -128,6 +128,71 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         return ServiceResult.Ok();
     }
 
+    public async Task<ServiceResult<List<AccountResponse>>> GetAccountsAsync(Guid groupId, Guid userId)
+    {
+        var group = await context.Groups
+            .Include(g => g.UserGroups)
+            .Include(g => g.AccountGroups)
+                .ThenInclude(ag => ag.Account)
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.UserGroups.Any(ug => ug.UserId == userId));
+
+        if (group is null) return ServiceResult<List<AccountResponse>>.NotFound();
+
+        var accounts = group.AccountGroups
+            .Select(ag => new AccountResponse(
+                ag.Account.Id, ag.Account.Name, ag.Account.Currency, ag.Account.UserId))
+            .ToList();
+
+        return ServiceResult<List<AccountResponse>>.Ok(accounts);
+    }
+
+    public async Task<ServiceResult> AddAccountAsync(Guid groupId, Guid userId, Guid accountId)
+    {
+        var group = await context.Groups
+            .Include(g => g.UserGroups)
+            .Include(g => g.AccountGroups)
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.UserGroups.Any(ug => ug.UserId == userId));
+
+        if (group is null) return ServiceResult.NotFound();
+
+        var membership = group.UserGroups.First(ug => ug.UserId == userId);
+        if (!membership.IsOwner) return ServiceResult.Forbidden();
+
+        if (group.AccountGroups.Any(ag => ag.AccountId == accountId))
+            return ServiceResult.Conflict();
+
+        var account = await context.Accounts
+            .FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
+
+        if (account is null) return ServiceResult.NotFound();
+
+        context.AccountGroups.Add(new AccountGroup { AccountId = accountId, GroupId = groupId });
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
+    public async Task<ServiceResult> RemoveAccountAsync(Guid groupId, Guid userId, Guid accountId)
+    {
+        var group = await context.Groups
+            .Include(g => g.UserGroups)
+            .Include(g => g.AccountGroups)
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.UserGroups.Any(ug => ug.UserId == userId));
+
+        if (group is null) return ServiceResult.NotFound();
+
+        var membership = group.UserGroups.First(ug => ug.UserId == userId);
+        if (!membership.IsOwner) return ServiceResult.Forbidden();
+
+        var accountGroup = group.AccountGroups.FirstOrDefault(ag => ag.AccountId == accountId);
+        if (accountGroup is null) return ServiceResult.NotFound();
+
+        context.AccountGroups.Remove(accountGroup);
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
     private static GroupResponse MapGroup(Group g) =>
         new(g.Id, g.Name, g.UserGroups
             .Select(ug => new GroupMemberResponse(ug.UserId, ug.User.Name, ug.User.Email, ug.IsOwner))
