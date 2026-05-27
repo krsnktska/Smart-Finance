@@ -4,14 +4,14 @@ namespace SmartFinance.Models;
 
 public class SmartFinanceDbContext(DbContextOptions<SmartFinanceDbContext> options) : DbContext(options)
 {
-    public DbSet<User> Users { get; set; }
-    public DbSet<Group> Groups { get; set; }
-    public DbSet<Account> Accounts { get; set; }
-    public DbSet<Category> Categories { get; set; }
-    public DbSet<Transaction> Transactions { get; set; }
-    public DbSet<UserGroup> UserGroups { get; set; }
-    public DbSet<TransactionCategory> TransactionCategories { get; set; }
-    public DbSet<AccountGroup> AccountGroups { get; set; }
+    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<Group> Groups { get; set; } = null!;
+    public DbSet<Account> Accounts { get; set; } = null!;
+    public DbSet<Category> Categories { get; set; } = null!;
+    public DbSet<Transaction> Transactions { get; set; } = null!;
+    public DbSet<UserGroup> UserGroups { get; set; } = null!;
+    public DbSet<TransactionCategory> TransactionCategories { get; set; } = null!;
+    public DbSet<AccountGroup> AccountGroups { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
