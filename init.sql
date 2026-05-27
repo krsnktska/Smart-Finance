@@ -64,3 +64,21 @@ CREATE TABLE account_groups (
     group_id   UUID NOT NULL REFERENCES groups(id)   ON DELETE CASCADE,
     PRIMARY KEY (account_id, group_id)
 );
+
+CREATE TABLE refresh_tokens (
+    id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token      TEXT        NOT NULL UNIQUE,
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_revoked BOOLEAN     NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE refresh_tokens (
+    id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    token      TEXT        NOT NULL UNIQUE,
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_revoked BOOLEAN     NOT NULL DEFAULT FALSE
+);
