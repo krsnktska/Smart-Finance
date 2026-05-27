@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-env
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 COPY src/backend/SmartFinance.csproj ./
@@ -7,7 +7,7 @@ RUN dotnet restore "src/backend/SmartFinance.csproj"
 COPY src/backend/ ./
 RUN dotnet publish "src/backend/SmartFinance.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
 COPY --from=build /app/publish .
