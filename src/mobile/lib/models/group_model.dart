@@ -5,11 +5,7 @@ class GroupModel {
   final String name;
   final List<GroupMemberModel> members;
 
-  GroupModel({
-    required this.id,
-    required this.name,
-    required this.members,
-  });
+  GroupModel({required this.id, required this.name, required this.members});
 
   factory GroupModel.fromJson(Map<String, dynamic> json) {
     return GroupModel(
@@ -29,4 +25,3 @@ class GroupModel {
     };
   }
 }
-

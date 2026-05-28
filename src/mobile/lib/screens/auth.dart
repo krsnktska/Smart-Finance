@@ -12,11 +12,11 @@ class AuthScreen extends ConsumerStatefulWidget {
 class _AuthScreenState extends ConsumerState<AuthScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   // Login controllers
   final _loginEmailController = TextEditingController();
   final _loginPasswordController = TextEditingController();
-  
+
   // Register controllers
   final _registerNameController = TextEditingController();
   final _registerEmailController = TextEditingController();
@@ -46,7 +46,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     final password = _loginPasswordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showSnackBar('Заполни email и пароль');
+      _showSnackBar('Enter email and password');
       return;
     }
 
@@ -57,10 +57,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     if (!mounted) return;
 
     if (success) {
-      _showSnackBar('Вход успешен!', isError: false);
+      _showSnackBar('Login successful!', isError: false);
     } else {
       final error = ref.read(authProvider).error;
-      _showSnackBar(error ?? 'Ошибка логина');
+      _showSnackBar(error ?? 'Login error');
     }
   }
 
@@ -71,17 +71,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     final confirmPassword = _registerConfirmPasswordController.text;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showSnackBar('Заполни все поля');
+      _showSnackBar('Please fill in all fields');
       return;
     }
 
     if (password != confirmPassword) {
-      _showSnackBar('Пароли не совпадают');
+      _showSnackBar('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      _showSnackBar('Пароль должен быть минимум 6 символов');
+      _showSnackBar('Password must be at least 6 characters');
       return;
     }
 
@@ -92,10 +92,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     if (!mounted) return;
 
     if (success) {
-      _showSnackBar('Регистрация успешна!', isError: false);
+      _showSnackBar('Registration successful!', isError: false);
     } else {
       final error = ref.read(authProvider).error;
-      _showSnackBar(error ?? 'Ошибка регистрации');
+      _showSnackBar(error ?? 'Registration error');
     }
   }
 
@@ -129,8 +129,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Colors.grey,
             tabs: const [
-              Tab(text: 'Вход'),
-              Tab(text: 'Регистрация'),
+              Tab(text: 'Login'),
+              Tab(text: 'Register'),
             ],
           ),
           // TabBarView
@@ -183,7 +183,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             enabled: !isLoading,
             obscureText: true,
             decoration: InputDecoration(
-              hintText: 'Пароль',
+              hintText: 'Password',
               prefixIcon: const Icon(Icons.lock),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -207,7 +207,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text(
-                    'Войти',
+                    'Login',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
           ),
@@ -226,7 +226,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Тестовые данные'),
+            child: const Text('Test Credentials'),
           ),
         ],
       ),
@@ -245,7 +245,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             controller: _registerNameController,
             enabled: !isLoading,
             decoration: InputDecoration(
-              hintText: 'Имя',
+              hintText: 'Name',
               prefixIcon: const Icon(Icons.person),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -273,7 +273,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             enabled: !isLoading,
             obscureText: true,
             decoration: InputDecoration(
-              hintText: 'Пароль',
+              hintText: 'Password',
               prefixIcon: const Icon(Icons.lock),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -287,7 +287,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             enabled: !isLoading,
             obscureText: true,
             decoration: InputDecoration(
-              hintText: 'Повтори пароль',
+              hintText: 'Confirm Password',
               prefixIcon: const Icon(Icons.lock),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -311,7 +311,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Text(
-                    'Зарегистрироваться',
+                    'Register',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
           ),

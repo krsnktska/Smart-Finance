@@ -52,8 +52,9 @@ class TransactionModel {
     return {
       'id': id,
       'type': _transactionTypeToString(type),
-      'specialType':
-          specialType != null ? _specialTypeToString(specialType!) : null,
+      'specialType': specialType != null
+          ? _specialTypeToString(specialType!)
+          : null,
       'value': value,
       'occurredAt': occurredAt.toIso8601String(),
       'name': name,
@@ -65,8 +66,9 @@ class TransactionModel {
   }
 
   static TransactionType _parseTransactionType(String value) {
-    return TransactionType.values
-        .firstWhere((e) => e.toString().split('.').last == value.toLowerCase());
+    return TransactionType.values.firstWhere(
+      (e) => e.toString().split('.').last == value.toLowerCase(),
+    );
   }
 
   static String _transactionTypeToString(TransactionType type) {
@@ -74,8 +76,9 @@ class TransactionModel {
   }
 
   static SpecialType _parseSpecialType(String value) {
-    return SpecialType.values
-        .firstWhere((e) => e.toString().split('.').last == value.toLowerCase());
+    return SpecialType.values.firstWhere(
+      (e) => e.toString().split('.').last == value.toLowerCase(),
+    );
   }
 
   static String _specialTypeToString(SpecialType type) {

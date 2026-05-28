@@ -21,11 +21,6 @@ class GroupMemberModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'name': name,
-      'email': email,
-      'isOwner': isOwner,
-    };
+    return {'userId': userId, 'name': name, 'email': email, 'isOwner': isOwner};
   }
 }

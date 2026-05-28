@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:mobile/repositories/auth_repository.dart';
 import 'package:mobile/services/api_client.dart';
@@ -81,7 +82,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await authRepository.logout(refreshToken: state.refreshToken!);
       }
     } catch (e) {
-      print('Logout error: $e');
+      if (kDebugMode) {
+        print('Logout error: $e');
+      }
     } finally {
       apiClient.removeAuthToken();
       state = AuthState();
