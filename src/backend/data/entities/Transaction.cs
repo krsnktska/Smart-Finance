@@ -41,4 +41,5 @@ public class Transaction
 
     public Account Account { get; set; } = null!;
     public ICollection<TransactionCategory> TransactionCategories { get; set; } = [];
+    public ICollection<ReceiptItem> ReceiptItems { get; set; } = [];
 }
