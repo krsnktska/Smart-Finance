@@ -54,6 +54,24 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
+builder.Services.AddScoped<IOcrService, OcrService>();
+builder.Services.AddScoped<IReceiptParserService, ReceiptParserService>();
+builder.Services.AddScoped<IAiCategorizationService, AiCategorizationService>();
+builder.Services.AddScoped<IReceiptScraperService, ReceiptScraperService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
+
+builder.Services.AddScoped<IMonobankService, MonobankService>();
+
+builder.Services.AddScoped<IGmailIntegrationService, GmailIntegrationService>();
+
+builder.Services.AddHttpClient("AI").ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient("Scraper").ConfigureHttpClient(c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(15);
+    c.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 SmartFinance/1.0");
+});
+builder.Services.AddHttpClient("Monobank").ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(20));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
