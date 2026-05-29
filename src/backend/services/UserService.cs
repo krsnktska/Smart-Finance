@@ -17,6 +17,13 @@ public class UserService(SmartFinanceDbContext context) : IUserService
         return ServiceResult<UserResponse>.Ok(new UserResponse(user.Id, user.Name, user.Email, user.Birthday));
     }
 
+    public async Task<ServiceResult<UserResponse>> FindByEmailAsync(string email)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower());
+        if (user is null) return ServiceResult<UserResponse>.NotFound();
+        return ServiceResult<UserResponse>.Ok(new UserResponse(user.Id, user.Name, user.Email, user.Birthday));
+    }
+
     public async Task<ServiceResult<UserResponse>> UpdateAsync(Guid userId, UpdateUserRequest request)
     {
         var user = await context.Users.FindAsync(userId);

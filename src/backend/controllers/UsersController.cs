@@ -18,6 +18,27 @@ namespace SmartFinance.Controllers;
 public class UsersController(IUserService userService) : ControllerBase
 {
     /// <summary>
+    /// Finds a user by email address. Used to get a userId before adding them to a group.
+    /// </summary>
+    /// <param name="email">Email address to search for.</param>
+    /// <returns>Basic user info (id, name, email).</returns>
+    /// <response code="200">User found.</response>
+    /// <response code="404">No user with that email exists.</response>
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> FindByEmail([FromQuery] string email)
+    {
+        var result = await userService.FindByEmailAsync(email);
+        return result.Status switch
+        {
+            ServiceStatus.Ok => Ok(result.Data),
+            ServiceStatus.NotFound => NotFound(),
+            _ => StatusCode(500)
+        };
+    }
+
+    /// <summary>
     /// Returns the currently authenticated user's profile.
     /// </summary>
     /// <returns>User profile data.</returns>
