@@ -7,6 +7,8 @@ using SmartFinance.Services.Interfaces;
 
 namespace SmartFinance.Controllers;
 
+public record InviteByEmailRequest(string Email);
+
 /// <summary>
 /// Manages group invitations — sending, accepting, and declining.
 /// </summary>
@@ -17,28 +19,28 @@ namespace SmartFinance.Controllers;
 public class GroupInvitationsController(IGroupInvitationService invitationService) : ControllerBase
 {
     /// <summary>
-    /// Sends an invitation to a user to join a group. Only the group owner can invite.
+    /// Sends an invitation to a user by email to join a group. Only the group owner can invite.
     /// </summary>
     /// <param name="id">Group identifier.</param>
-    /// <param name="userId">Identifier of the user to invite.</param>
+    /// <param name="request">Email of the user to invite.</param>
     /// <response code="201">Invitation sent successfully.</response>
     /// <response code="403">Requester is not the group owner.</response>
-    /// <response code="404">Group or user not found.</response>
+    /// <response code="404">Group not found or no user with that email exists.</response>
     /// <response code="409">User is already a member or has a pending invitation.</response>
-    [HttpPost("groups/{id:guid}/invitations/{userId:guid}")]
+    [HttpPost("groups/{id:guid}/invitations")]
     [ProducesResponseType(typeof(GroupInvitationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Invite(Guid id, Guid userId)
+    public async Task<IActionResult> Invite(Guid id, [FromBody] InviteByEmailRequest request)
     {
-        var result = await invitationService.InviteAsync(id, GetCurrentUserId(), userId);
+        var result = await invitationService.InviteByEmailAsync(id, GetCurrentUserId(), request.Email);
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(GetGroupInvitations), new { id }, result.Data),
             ServiceStatus.Forbidden => Forbid(),
             ServiceStatus.Conflict => Conflict(new { message = "User is already a member or has a pending invitation." }),
-            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or no user with this email exists." }),
             _ => StatusCode(500)
         };
     }

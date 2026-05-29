@@ -7,7 +7,7 @@ namespace SmartFinance.Services;
 
 public class GroupInvitationService(SmartFinanceDbContext context) : IGroupInvitationService
 {
-    public async Task<ServiceResult<GroupInvitationResponse>> InviteAsync(Guid groupId, Guid inviterId, Guid inviteeId)
+    public async Task<ServiceResult<GroupInvitationResponse>> InviteByEmailAsync(Guid groupId, Guid inviterId, string email)
     {
         var group = await context.Groups
             .Include(g => g.UserGroups)
@@ -18,11 +18,13 @@ public class GroupInvitationService(SmartFinanceDbContext context) : IGroupInvit
         if (!group.UserGroups.First(ug => ug.UserId == inviterId).IsOwner)
             return ServiceResult<GroupInvitationResponse>.Forbidden();
 
+        var invitee = await context.Users.FirstOrDefaultAsync(u => u.Email == email.ToLower());
+        if (invitee is null) return ServiceResult<GroupInvitationResponse>.NotFound();
+
+        var inviteeId = invitee.Id;
+
         if (group.UserGroups.Any(ug => ug.UserId == inviteeId))
             return ServiceResult<GroupInvitationResponse>.Conflict();
-
-        var invitee = await context.Users.FindAsync(inviteeId);
-        if (invitee is null) return ServiceResult<GroupInvitationResponse>.NotFound();
 
         // не створювати дублікат якщо вже є активне запрошення
         var existingPending = await context.GroupInvitations
