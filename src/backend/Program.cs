@@ -14,7 +14,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<SmartFinanceDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
         npgsql => npgsql.MapEnum<TransactionType>()
-                        .MapEnum<SpecialType>()));
+                        .MapEnum<SpecialType>()
+                        .MapEnum<BankType>()));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSection["Key"]!);
