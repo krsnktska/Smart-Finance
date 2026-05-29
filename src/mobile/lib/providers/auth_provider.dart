@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:mobile/repositories/auth_repository.dart';
 import 'package:mobile/services/api_client.dart';
 import 'package:mobile/models/auth_model.dart';
+import 'package:mobile/services/secure_storage.dart';
 
 class AuthState {
   final AuthModel? auth;
@@ -35,16 +36,44 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository authRepository;
   final ApiClient apiClient;
+  final SecureStorageService _storage = SecureStorageService();
 
   AuthNotifier({required this.authRepository, required this.apiClient})
-    : super(AuthState());
+    : super(AuthState()) {
+    // Try to restore tokens from secure storage
+    _initFromStorage();
+  }
 
-  Future<bool> login({required String email, required String password}) async {
+  Future<void> _initFromStorage() async {
+    final storedRefresh = await _storage.readRefreshToken();
+    if (storedRefresh == null) return;
+    try {
+      final auth = await authRepository.refreshToken(
+        refreshToken: storedRefresh,
+      );
+      apiClient.setAuthToken(auth.token);
+      state = state.copyWith(auth: auth);
+    } catch (e) {
+      await _storage.clear();
+    }
+  }
+
+  Future<bool> login({
+    required String email,
+    required String password,
+    bool remember = false,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final auth = await authRepository.login(email: email, password: password);
       apiClient.setAuthToken(auth.token);
       state = state.copyWith(auth: auth, isLoading: false);
+      if (remember) {
+        final expiry = DateTime.now().add(const Duration(days: 30));
+        await _storage.saveRefreshToken(auth.refreshToken, expiry);
+      } else {
+        await _storage.clear();
+      }
       return true;
     } catch (e) {
       final errorMessage = e.toString();
@@ -57,6 +86,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String name,
     required String email,
     required String password,
+    DateTime? birthday,
+    bool remember = false,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -64,10 +95,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: name,
         email: email,
         password: password,
+        birthday: birthday,
       );
 
       apiClient.setAuthToken(auth.token);
       state = state.copyWith(auth: auth, isLoading: false);
+      if (remember) {
+        final expiry = DateTime.now().add(const Duration(days: 30));
+        await _storage.saveRefreshToken(auth.refreshToken, expiry);
+      } else {
+        await _storage.clear();
+      }
       return true;
     } catch (e) {
       final errorMessage = e.toString();
@@ -87,6 +125,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } finally {
       apiClient.removeAuthToken();
+      await _storage.clear();
       state = AuthState();
     }
   }

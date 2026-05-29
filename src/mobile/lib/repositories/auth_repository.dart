@@ -23,10 +23,19 @@ class AuthRepository {
     required String name,
     required String email,
     required String password,
+    DateTime? birthday,
   }) async {
+    final data = <String, dynamic>{
+      'name': name,
+      'email': email,
+      'password': password,
+    };
+    if (birthday != null)
+      data['birthday'] = birthday.toIso8601String().split('T').first;
+
     final response = await apiClient.post(
       ApiConfig.register,
-      data: {'name': name, 'email': email, 'password': password},
+      data: data,
       fromJson: (json) => AuthModel.fromJson(json as Map<String, dynamic>),
     );
     return response;

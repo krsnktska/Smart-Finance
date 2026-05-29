@@ -17,14 +17,14 @@ final colorScheme = ColorScheme.fromSeed(
   surface: const Color.fromARGB(255, 0, 37, 16),
   primary: const Color.fromARGB(255, 0, 200, 83),
   onPrimary: Colors.black,
-  onSurface: const Color.fromARGB(255, 220, 230, 225),
+  onSurface: const Color.fromARGB(255, 110, 223, 138),
   secondary: const Color.fromARGB(255, 0, 184, 212),
   onSecondary: Colors.black,
   error: const Color.fromARGB(255, 255, 82, 82),
   onError: Colors.white,
 );
 
-final theme = ThemeData().copyWith(
+final theme = ThemeData.dark().copyWith(
   colorScheme: colorScheme,
   textTheme: ThemeData.dark().textTheme.copyWith(
     titleLarge: TextStyle(
@@ -32,9 +32,23 @@ final theme = ThemeData().copyWith(
       fontWeight: FontWeight.bold,
       color: colorScheme.onSurface,
     ),
+    titleMedium: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: colorScheme.onSurface,
+    ),
+    titleSmall: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      color: colorScheme.onSurface,
+    ),
+    bodyLarge: TextStyle(fontSize: 16, color: colorScheme.onSurface),
+    bodyMedium: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+    bodySmall: TextStyle(fontSize: 12, color: colorScheme.onSurface),
   ),
   appBarTheme: AppBarTheme(
     backgroundColor: colorScheme.surface,
+
     titleTextStyle: TextStyle(
       fontSize: 20,
       color: colorScheme.onSurface,

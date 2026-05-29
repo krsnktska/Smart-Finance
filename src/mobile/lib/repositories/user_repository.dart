@@ -7,7 +7,6 @@ class UserRepository {
 
   UserRepository({required this.apiClient});
 
-
   Future<UserModel> getMe() async {
     final response = await apiClient.get(
       '${ApiConfig.users}/me',
@@ -17,12 +16,14 @@ class UserRepository {
   }
 
   Future<UserModel> updateMe({String? name, DateTime? birthday}) async {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (birthday != null)
+      data['birthday'] = birthday.toIso8601String().split('T').first;
+
     final response = await apiClient.put(
       '${ApiConfig.users}/me',
-      data: {
-        'name': ?name,
-        if (birthday != null) 'birthday': birthday.toIso8601String(),
-      },
+      data: data,
       fromJson: (json) => UserModel.fromJson(json as Map<String, dynamic>),
     );
     return response;
@@ -32,7 +33,7 @@ class UserRepository {
     required String currentPassword,
     required String newPassword,
   }) async {
-    await apiClient.put(
+    await apiClient.patch(
       '${ApiConfig.users}/me/password',
       data: {'currentPassword': currentPassword, 'newPassword': newPassword},
     );

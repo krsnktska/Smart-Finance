@@ -44,12 +44,17 @@ class AccountRepository {
     String? name,
     String? currency,
   }) async {
+    final data = <String, dynamic>{};
+    if (name != null) {
+      data['name'] = name;
+    }
+    if (currency != null) {
+      data['currency'] = currency;
+    }
+
     final response = await apiClient.put(
       '${ApiConfig.accounts}/$accountId',
-      data: {
-        'name': ?name,
-        'currency': ?currency,
-      },
+      data: data,
       fromJson: (json) => AccountModel.fromJson(json as Map<String, dynamic>),
     );
     return response;
