@@ -15,7 +15,8 @@ builder.Services.AddDbContext<SmartFinanceDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
         npgsql => npgsql.MapEnum<TransactionType>()
                         .MapEnum<SpecialType>()
-                        .MapEnum<BankType>()));
+                        .MapEnum<BankType>()
+                        .MapEnum<InvitationStatus>()));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSection["Key"]!);
@@ -64,6 +65,7 @@ builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IMonobankService, MonobankService>();
 
 builder.Services.AddScoped<IGmailIntegrationService, GmailIntegrationService>();
+builder.Services.AddScoped<IGroupInvitationService, GroupInvitationService>();
 
 builder.Services.AddHttpClient("AI").ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient("Scraper").ConfigureHttpClient(c =>

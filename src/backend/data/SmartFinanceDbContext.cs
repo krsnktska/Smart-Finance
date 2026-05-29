@@ -16,12 +16,14 @@ public class SmartFinanceDbContext(DbContextOptions<SmartFinanceDbContext> optio
     public DbSet<ReceiptItem> ReceiptItems { get; set; } = null!;
     public DbSet<GmailToken> GmailTokens { get; set; } = null!;
     public DbSet<BankIntegration> BankIntegrations { get; set; } = null!;
+    public DbSet<GroupInvitation> GroupInvitations { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum<TransactionType>();
         modelBuilder.HasPostgresEnum<SpecialType>();
         modelBuilder.HasPostgresEnum<BankType>();
+        modelBuilder.HasPostgresEnum<InvitationStatus>();
 
         modelBuilder.Entity<UserGroup>()
             .HasKey(ug => new { ug.UserId, ug.GroupId });
@@ -46,5 +48,20 @@ public class SmartFinanceDbContext(DbContextOptions<SmartFinanceDbContext> optio
 
         modelBuilder.Entity<BankIntegration>()
             .HasIndex(bi => new { bi.UserId, bi.BankType, bi.BankAccountId });
+
+        modelBuilder.Entity<GroupInvitation>()
+            .HasOne(gi => gi.InvitedUser)
+            .WithMany()
+            .HasForeignKey(gi => gi.InvitedUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<GroupInvitation>()
+            .HasOne(gi => gi.InvitedByUser)
+            .WithMany()
+            .HasForeignKey(gi => gi.InvitedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<GroupInvitation>()
+            .HasIndex(gi => new { gi.GroupId, gi.InvitedUserId, gi.Status });
     }
 }
