@@ -9,7 +9,7 @@ namespace SmartFinance.Services;
 
 public class AiCategorizationService(IConfiguration configuration, IHttpClientFactory httpClientFactory, ILogger<AiCategorizationService> logger) : IAiCategorizationService
 {
-    private readonly string _apiKey = configuration["AI__ApiKey"] ?? string.Empty;
+    private readonly string _apiKey = configuration["AI:ApiKey"] ?? string.Empty;
     private readonly string _apiUrl = configuration["AI__ApiUrl"] ?? "https://api.openai.com/v1/chat/completions";
     private readonly string _model = configuration["AI__Model"] ?? "gpt-4o-mini";
 
