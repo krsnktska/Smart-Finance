@@ -15,10 +15,13 @@ public class StatisticsService(SmartFinanceDbContext context) : IStatisticsServi
 
         if (account is null) return ServiceResult<AccountSummaryResponse>.NotFound();
 
+        var fromUtc = from.HasValue ? new DateTimeOffset(from.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
+        var toUtc = to.HasValue ? new DateTimeOffset(to.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
+
         var transactions = await context.Transactions
             .Where(t => t.AccountId == accountId)
-            .Where(t => !from.HasValue || t.OccurredAt >= from.Value)
-            .Where(t => !to.HasValue || t.OccurredAt <= to.Value)
+            .Where(t => !fromUtc.HasValue || t.OccurredAt >= fromUtc.Value)
+            .Where(t => !toUtc.HasValue || t.OccurredAt <= toUtc.Value)
             .ToListAsync();
 
         var totalIncome = transactions
@@ -41,10 +44,13 @@ public class StatisticsService(SmartFinanceDbContext context) : IStatisticsServi
 
         if (account is null) return ServiceResult<List<CategorySpendingResponse>>.NotFound();
 
+        var fromUtc = from.HasValue ? new DateTimeOffset(from.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
+        var toUtc = to.HasValue ? new DateTimeOffset(to.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
+
         var transactions = await context.Transactions
             .Where(t => t.AccountId == accountId && t.Type == TransactionType.Expense)
-            .Where(t => !from.HasValue || t.OccurredAt >= from.Value)
-            .Where(t => !to.HasValue || t.OccurredAt <= to.Value)
+            .Where(t => !fromUtc.HasValue || t.OccurredAt >= fromUtc.Value)
+            .Where(t => !toUtc.HasValue || t.OccurredAt <= toUtc.Value)
             .Include(t => t.TransactionCategories)
                 .ThenInclude(tc => tc.Category)
             .ToListAsync();
