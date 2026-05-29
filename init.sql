@@ -74,14 +74,40 @@ CREATE TABLE refresh_tokens (
     is_revoked BOOLEAN     NOT NULL DEFAULT FALSE
 );
 
-CREATE TABLE refresh_tokens (
-    id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    token      TEXT        NOT NULL UNIQUE,
-    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_revoked BOOLEAN     NOT NULL DEFAULT FALSE
+CREATE TYPE bank_type AS ENUM ('Monobank');
+
+CREATE TABLE receipt_items (
+    id            UUID        PRIMARY KEY,
+    transaction_id UUID        NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    name          TEXT        NOT NULL,
+    quantity      NUMERIC     NOT NULL DEFAULT 1,
+    unit          TEXT,
+    unit_price    NUMERIC     NOT NULL,
+    total_price   NUMERIC     NOT NULL
 );
+
+CREATE TABLE gmail_tokens (
+    id             UUID        PRIMARY KEY,
+    user_id        UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    access_token   TEXT        NOT NULL,
+    refresh_token  TEXT,
+    token_expiry   TIMESTAMPTZ NOT NULL,
+    gmail_address  TEXT        NOT NULL,
+    last_scanned_at TIMESTAMPTZ
+);
+
+CREATE TABLE bank_integrations (
+    id              UUID        PRIMARY KEY,
+    user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    bank_type       bank_type   NOT NULL,
+    api_token       TEXT        NOT NULL,
+    account_id      UUID        NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    bank_account_id TEXT,
+    last_synced_at  TIMESTAMPTZ
+);
+
+CREATE INDEX idx_bank_integrations
+    ON bank_integrations (user_id, bank_type, bank_account_id);
 
 CREATE TYPE invitation_status AS ENUM ('Pending', 'Accepted', 'Declined');
 
