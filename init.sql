@@ -82,3 +82,18 @@ CREATE TABLE refresh_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_revoked BOOLEAN     NOT NULL DEFAULT FALSE
 );
+
+CREATE TYPE invitation_status AS ENUM ('Pending', 'Accepted', 'Declined');
+
+CREATE TABLE group_invitations (
+    id                  UUID              PRIMARY KEY,
+    group_id            UUID              NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    invited_user_id     UUID              NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invited_by_user_id  UUID              NOT NULL REFERENCES users(id),
+    status              invitation_status NOT NULL DEFAULT 'Pending',
+    created_at          TIMESTAMPTZ       NOT NULL DEFAULT now(),
+    responded_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_group_invitations
+    ON group_invitations (group_id, invited_user_id, status);
