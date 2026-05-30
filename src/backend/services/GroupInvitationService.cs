@@ -118,6 +118,22 @@ public class GroupInvitationService(SmartFinanceDbContext context) : IGroupInvit
         return ServiceResult.Ok();
     }
 
+    public async Task<ServiceResult> CancelAsync(Guid invitationId, Guid requesterId)
+    {
+        var invitation = await context.GroupInvitations
+            .FirstOrDefaultAsync(gi => gi.Id == invitationId);
+
+        if (invitation is null) return ServiceResult.NotFound();
+        if (invitation.InvitedByUserId != requesterId) return ServiceResult.Forbidden();
+        if (invitation.Status != InvitationStatus.Pending) return ServiceResult.BadRequest();
+
+        invitation.Status = InvitationStatus.Cancelled;
+        invitation.RespondedAt = DateTimeOffset.UtcNow;
+
+        await context.SaveChangesAsync();
+        return ServiceResult.Ok();
+    }
+
     private static GroupInvitationResponse Map(GroupInvitation gi) =>
         Map(gi, gi.Group, gi.InvitedUser, gi.InvitedByUser);
 

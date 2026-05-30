@@ -120,6 +120,33 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         };
     }
 
+    /// <summary>
+    /// Cancels a pending group invitation. Only the user who sent the invitation can cancel it.
+    /// </summary>
+    /// <param name="groupId">Group identifier.</param>
+    /// <param name="invitationId">Invitation identifier.</param>
+    /// <response code="204">Invitation cancelled successfully.</response>
+    /// <response code="400">Invitation is no longer pending.</response>
+    /// <response code="403">Requester is not the sender of the invitation.</response>
+    /// <response code="404">Invitation not found.</response>
+    [HttpDelete("groups/{groupId:guid}/invitations/{invitationId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Cancel(Guid groupId, Guid invitationId)
+    {
+        var result = await invitationService.CancelAsync(invitationId, GetCurrentUserId());
+        return result.Status switch
+        {
+            ServiceStatus.Ok => NoContent(),
+            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.BadRequest => BadRequest(new { message = "Invitation is no longer pending." }),
+            _ => StatusCode(500)
+        };
+    }
+
     private Guid GetCurrentUserId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

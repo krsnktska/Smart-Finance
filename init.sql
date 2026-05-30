@@ -109,7 +109,7 @@ CREATE TABLE bank_integrations (
 CREATE INDEX idx_bank_integrations
     ON bank_integrations (user_id, bank_type, bank_account_id);
 
-CREATE TYPE invitation_status AS ENUM ('Pending', 'Accepted', 'Declined');
+CREATE TYPE invitation_status AS ENUM ('Pending', 'Accepted', 'Declined', 'Cancelled');
 
 CREATE TABLE group_invitations (
     id                  UUID              PRIMARY KEY,
