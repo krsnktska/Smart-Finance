@@ -41,11 +41,9 @@ class TransactionRepository {
     final response = await apiClient.post(
       ApiConfig.transactions,
       data: {
-        // 👇 Шлем инты (.index) вместо строк, так как бэк ждет числа
         'type': type.index,
         if (specialType != null) 'specialType': specialType.index,
         'value': value,
-        // 👇 Принудительно гоним дату в UTC для базы данных
         'occurredAt': occurredAt.toUtc().toIso8601String(),
         'name': name,
         if (description != null && description.isNotEmpty)
@@ -74,12 +72,12 @@ class TransactionRepository {
   }) async {
     final data = <String, dynamic>{};
 
-    // 👇 Тут тоже переводим на индексы и UTC
     if (type != null) data['type'] = type.index;
     if (specialType != null) data['specialType'] = specialType.index;
     if (value != null) data['value'] = value;
-    if (occurredAt != null)
+    if (occurredAt != null) {
       data['occurredAt'] = occurredAt.toUtc().toIso8601String();
+    }
     if (name != null) data['name'] = name;
     if (description != null) data['description'] = description;
     if (currency != null) data['currency'] = currency;

@@ -190,7 +190,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  // Type Selection (Income vs Expense)
                   Row(
                     children: [
                       Expanded(
@@ -228,7 +227,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Value Field
                   AppTextField(
                     controller: _valueController,
                     keyboardType: const TextInputType.numberWithOptions(
@@ -270,7 +268,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Occurred At Date Picker
                   ListTile(
                     title: const Text('Date & Time'),
                     subtitle: Text(
@@ -285,7 +282,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Special Type Selector
                   DropdownButtonFormField<SpecialType?>(
                     initialValue: _specialType,
                     decoration: InputDecoration(
@@ -317,14 +313,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Categories Selection Label
                   const Text(
                     'Select Categories',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
 
-                  // Category Chips Selector
                   categoriesState.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : categoriesState.categories.isEmpty
@@ -364,7 +358,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
                   const SizedBox(height: 40),
 
-                  // Save Button
                   AppButton(
                     label: isEdit ? 'Save Changes' : 'Create Transaction',
                     onPressed: _saveTransaction,

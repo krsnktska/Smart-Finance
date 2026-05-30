@@ -117,7 +117,7 @@ class AccountsTab extends ConsumerWidget {
                   },
                 ),
               );
-            }).toList(),
+            }),
         ],
       ),
     );

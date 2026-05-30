@@ -18,11 +18,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   List<AccountModel> _groupAccounts = [];
   bool _isLoadingAccounts = false;
 
+  // Стейт для хранения ожидающих инвайтов
+  List<dynamic> _pendingInvitations = [];
+  bool _isLoadingInvitations = false;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() {
       _loadGroupAccounts();
+      _loadGroupInvitations();
       ref.read(accountsProvider.notifier).loadAccounts();
     });
   }
@@ -31,7 +36,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     setState(() {
       _isLoadingAccounts = true;
     });
-    final accounts = await ref.read(groupsProvider.notifier).getGroupAccounts(widget.groupId);
+    final accounts = await ref
+        .read(groupsProvider.notifier)
+        .getGroupAccounts(widget.groupId);
     if (mounted) {
       setState(() {
         _groupAccounts = accounts;
@@ -40,17 +47,54 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
     }
   }
 
+  Future<void> _loadGroupInvitations() async {
+    setState(() {
+      _isLoadingInvitations = true;
+    });
+    try {
+      final invitations = await ref
+          .read(groupsProvider.notifier)
+          .getGroupInvitations(widget.groupId);
+
+      if (mounted) {
+        setState(() {
+          // ФИЛЬТРАЦИЯ: Оставляем только те инвайты, у которых статус "Pending"
+          // Если тебе нужно отображать вообще все инвайты, просто удали `.where(...)`
+          _pendingInvitations = invitations.where((invite) {
+            return invite['status'] == 'Pending';
+          }).toList();
+        });
+      }
+    } catch (_) {
+      // Логгирование или обработка ошибок по вкусу
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingInvitations = false;
+        });
+      }
+    }
+  }
+
   Future<void> _addMember() async {
     final controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add Member'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Enter User ID',
-            border: OutlineInputBorder(),
+        title: const Text('Invite Member'),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              hintText: 'Enter User Email',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.email_outlined),
+            ),
           ),
         ),
         actions: [
@@ -60,31 +104,48 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final userId = controller.text.trim();
-              if (userId.isEmpty) return;
-              
+              final email = controller.text.trim();
+              if (email.isEmpty) return;
+
+              if (!RegExp(
+                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+              ).hasMatch(email)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid email address'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
               final navigator = Navigator.of(context);
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               navigator.pop();
-              
+
               final success = await ref
                   .read(groupsProvider.notifier)
-                  .addMember(groupId: widget.groupId, userId: userId);
-              
+                  .inviteMemberByEmail(groupId: widget.groupId, email: email);
+
               if (success) {
                 scaffoldMessenger.showSnackBar(
-                  const SnackBar(content: Text('Member added successfully!'), backgroundColor: Colors.green),
+                  const SnackBar(
+                    content: Text('Invitation sent successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
-                // Reload group data
-                ref.read(groupsProvider.notifier).loadGroups();
+                _loadGroupInvitations();
               } else {
                 final error = ref.read(groupsProvider).error;
                 scaffoldMessenger.showSnackBar(
-                  SnackBar(content: Text(error ?? 'Failed to add member'), backgroundColor: Colors.red),
+                  SnackBar(
+                    content: Text(error ?? 'Failed to send invitation'),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               }
             },
-            child: const Text('Add'),
+            child: const Text('Invite'),
           ),
         ],
       ),
@@ -97,7 +158,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Remove member "$userName"?'),
-        content: const Text('Are you sure you want to remove this member from the group?'),
+        content: const Text(
+          'Are you sure you want to remove this member from the group?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -119,13 +182,19 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
       if (success) {
         scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Member removed'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Member removed'),
+            backgroundColor: Colors.green,
+          ),
         );
         ref.read(groupsProvider.notifier).loadGroups();
       } else {
         final error = ref.read(groupsProvider).error;
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(error ?? 'Failed to remove member'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(error ?? 'Failed to remove member'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -133,10 +202,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
   Future<void> _linkAccount() async {
     final accountsState = ref.read(accountsProvider);
-    // Filter out accounts that are already linked
-    final availableAccounts = accountsState.accounts.where(
-      (acc) => !_groupAccounts.any((ga) => ga.id == acc.id),
-    ).toList();
+    final availableAccounts = accountsState.accounts
+        .where((acc) => !_groupAccounts.any((ga) => ga.id == acc.id))
+        .toList();
 
     if (availableAccounts.isEmpty) {
       showDialog(
@@ -165,7 +233,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         builder: (context, setState) => AlertDialog(
           title: const Text('Link Wallet to Group'),
           content: DropdownButtonFormField<AccountModel>(
-            initialValue: selectedAccount,
+            value: selectedAccount,
             decoration: const InputDecoration(
               labelText: 'Select Wallet',
               border: OutlineInputBorder(),
@@ -190,24 +258,33 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (selectedAccount == null) return;
-                
+
                 final navigator = Navigator.of(context);
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 navigator.pop();
-                
+
                 final success = await ref
                     .read(groupsProvider.notifier)
-                    .addAccount(groupId: widget.groupId, accountId: selectedAccount!.id);
+                    .addAccount(
+                      groupId: widget.groupId,
+                      accountId: selectedAccount!.id,
+                    );
 
                 if (success) {
                   scaffoldMessenger.showSnackBar(
-                    const SnackBar(content: Text('Wallet linked successfully!'), backgroundColor: Colors.green),
+                    const SnackBar(
+                      content: Text('Wallet linked successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                   _loadGroupAccounts();
                 } else {
                   final error = ref.read(groupsProvider).error;
                   scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text(error ?? 'Failed to link wallet'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text(error ?? 'Failed to link wallet'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },
@@ -225,7 +302,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Unlink wallet "$accountName"?'),
-        content: const Text('This wallet will no longer be visible to other group members.'),
+        content: const Text(
+          'This wallet will no longer be visible to other group members.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -247,13 +326,19 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
       if (success) {
         scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Wallet unlinked'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Wallet unlinked'),
+            backgroundColor: Colors.green,
+          ),
         );
         _loadGroupAccounts();
       } else {
         final error = ref.read(groupsProvider).error;
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(error ?? 'Failed to unlink wallet'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(error ?? 'Failed to unlink wallet'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -263,20 +348,20 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   Widget build(BuildContext context) {
     final groupsState = ref.watch(groupsProvider);
     final userState = ref.watch(userProvider);
-    
-    // Find this group in the state list
-    final groupIndex = groupsState.groups.indexWhere((g) => g.id == widget.groupId);
+
+    final groupIndex = groupsState.groups.indexWhere(
+      (g) => g.id == widget.groupId,
+    );
     if (groupIndex == -1) {
       return Scaffold(
         appBar: AppBar(title: const Text('Group Details')),
         body: const Center(child: Text('Group not found')),
       );
     }
-    
+
     final group = groupsState.groups[groupIndex];
     final currentUser = userState.user;
-    
-    // Check if current user is owner of the group
+
     final isCurrentUserOwner = group.members.any(
       (m) => m.userId == currentUser?.id && m.isOwner,
     );
@@ -290,6 +375,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             onPressed: () {
               ref.read(groupsProvider.notifier).loadGroups();
               _loadGroupAccounts();
+              _loadGroupInvitations();
             },
           ),
         ],
@@ -303,19 +389,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             children: [
               Text(
                 'Members (${group.members.length})',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (isCurrentUserOwner)
                 ElevatedButton.icon(
                   onPressed: _addMember,
                   icon: const Icon(Icons.person_add, size: 16),
-                  label: const Text('Add'),
+                  label: const Text('Invite'),
                 ),
             ],
           ),
           const SizedBox(height: 12),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -324,10 +415,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               itemBuilder: (context, index) {
                 final member = group.members[index];
                 final isMe = member.userId == currentUser?.id;
-                
+
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: member.isOwner ? Colors.amber[100] : Colors.blue[50],
+                    backgroundColor: member.isOwner
+                        ? Colors.amber[100]
+                        : Colors.blue[50],
                     child: Icon(
                       member.isOwner ? Icons.star : Icons.person,
                       color: member.isOwner ? Colors.amber[800] : Colors.blue,
@@ -342,12 +435,18 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                       if (isMe) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text('You', style: TextStyle(fontSize: 10)),
+                          child: const Text(
+                            'You',
+                            style: TextStyle(fontSize: 10),
+                          ),
                         ),
                       ],
                     ],
@@ -358,7 +457,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                     children: [
                       if (member.isOwner)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.amber[50],
                             borderRadius: BorderRadius.circular(8),
@@ -375,8 +477,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         ),
                       if (isCurrentUserOwner && !member.isOwner)
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => _removeMember(member.userId, member.name),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                          ),
+                          onPressed: () =>
+                              _removeMember(member.userId, member.name),
                         ),
                     ],
                   ),
@@ -384,6 +490,78 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
               },
             ),
           ),
+
+          // Section: Pending Invitations
+          if (isCurrentUserOwner &&
+              (_isLoadingInvitations || _pendingInvitations.isNotEmpty)) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'Pending Invitations',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            if (_isLoadingInvitations && _pendingInvitations.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _pendingInvitations.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final invite = _pendingInvitations[index];
+
+                    // ИСПРАВЛЕНИЕ ТУТ: Читаем данные из Map через квадратные скобки
+                    final email = invite['invitedUserEmail'] ?? 'Unknown Email';
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.orange[50],
+                        child: Icon(
+                          Icons.hourglass_top_rounded,
+                          color: Colors.orange[800],
+                        ),
+                      ),
+                      title: Text(
+                        email,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text('Waiting for response...'),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange[200]!),
+                        ),
+                        child: Text(
+                          'Pending',
+                          style: TextStyle(
+                            color: Colors.orange[800],
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+
           const SizedBox(height: 24),
 
           // Section: Shared Wallets
@@ -403,12 +581,19 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           if (_isLoadingAccounts)
-            const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (_groupAccounts.isEmpty)
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: const Padding(
                 padding: EdgeInsets.all(24.0),
                 child: Column(
@@ -425,7 +610,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             )
           else
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -433,25 +620,48 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                 separatorBuilder: (context, index) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final account = _groupAccounts[index];
-                  return ListTile(
-                    leading: const Icon(Icons.account_balance_wallet, color: Colors.blue),
-                    title: Text(
-                      account.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text('Currency: ${account.currency}'),
-                    trailing: isCurrentUserOwner
-                        ? IconButton(
-                            icon: const Icon(Icons.link_off, color: Colors.red),
-                            onPressed: () => _unlinkAccount(account.id, account.name),
-                          )
-                        : null,
+                  return AppAccountListTile(
+                    account: account,
+                    isCurrentUserOwner: isCurrentUserOwner,
+                    onUnlink: () => _unlinkAccount(account.id, account.name),
                   );
                 },
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+// Вынесено в отдельный виджет, чтобы избежать константных предупреждений во встроенных коллекциях
+class AppAccountListTile extends StatelessWidget {
+  final AccountModel account;
+  final bool isCurrentUserOwner;
+  final VoidCallback onUnlink;
+
+  const AppAccountListTile({
+    super.key,
+    required this.account,
+    required this.isCurrentUserOwner,
+    required this.onUnlink,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.account_balance_wallet, color: Colors.blue),
+      title: Text(
+        account.name,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text('Currency: ${account.currency}'),
+      trailing: isCurrentUserOwner
+          ? IconButton(
+              icon: const Icon(Icons.link_off, color: Colors.red),
+              onPressed: onUnlink,
+            )
+          : null,
     );
   }
 }

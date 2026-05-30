@@ -63,22 +63,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SmartFinance'),
-        centerTitle: true,
-        elevation: 0,
-      ),
+      // Залишаємо AppBar пустим або прибираємо зовсім, щоб логотип красиво став зверху
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 40),
-            Icon(
-              Icons.account_balance_wallet,
-              size: 64,
-              color: Theme.of(context).colorScheme.primary,
+            const SizedBox(height: 10),
+
+            // ─── АНІМОВАНИЙ БЛОК ЛОГОТИПУ ───
+            Center(
+              child: Column(
+                children: [
+                  Hero(
+                    tag: 'app_wallet_icon',
+                    child: Container(
+                      width: 90, // Трохи міняємо розмір для екрану логіну
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Icon(
+                        Icons.account_balance_wallet,
+                        size: 55,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Hero(
+                    tag: 'app_title_text',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Text(
+                        'SmartFinance',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            // ─────────────────────────────────
             const SizedBox(height: 40),
             AppTextField(
               controller: _loginEmailController,
@@ -92,10 +126,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               controller: _loginPasswordController,
               enabled: !isLoading,
               hintText: 'Password',
-              obscureText: true,
               prefixIcon: const Icon(Icons.lock),
+              obscureText: true,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Checkbox(

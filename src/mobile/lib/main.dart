@@ -6,6 +6,8 @@ import 'package:mobile/providers/accounts_provider.dart';
 
 import 'package:mobile/screens/auth.dart';
 import 'package:mobile/screens/home.dart';
+import 'package:mobile/screens/splash_screen.dart';
+import 'package:mobile/providers/invitations_provider.dart';
 
 void main() {
   runApp(ProviderScope(child: const MyApp()));
@@ -69,13 +71,26 @@ class MyApp extends ConsumerWidget {
       if (prev?.isAuthenticated == false && next.isAuthenticated) {
         ref.read(userProvider.notifier).loadUser();
         ref.read(accountsProvider.notifier).loadAccounts();
+        ref.read(invitationsProvider.notifier).fetchInvitations();
       }
     });
 
     return MaterialApp(
       title: 'SmartFinance',
       theme: theme,
-      home: authState.isAuthenticated ? const HomeScreen() : const AuthScreen(),
+      home: _buildHome(authState),
     );
+  }
+
+  Widget _buildHome(AuthState authState) {
+    if (authState.isInitializing) {
+      return const SplashScreen();
+    }
+
+    if (authState.isAuthenticated) {
+      return const HomeScreen();
+    }
+
+    return const AuthScreen();
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/providers/invitations_provider.dart';
 import 'package:mobile/providers/user_provider.dart';
+import 'package:mobile/screens/invitations.dart';
 import 'package:mobile/widgets/app_buttons.dart';
 import 'package:mobile/widgets/app_text_field.dart';
 
@@ -11,6 +13,7 @@ class ProfileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userProvider);
+    final invitationsAsync = ref.watch(invitationsProvider);
 
     if (userState.user == null) {
       return const Center(child: CircularProgressIndicator());
@@ -50,6 +53,42 @@ class ProfileTab extends ConsumerWidget {
                 user.email,
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
+              const SizedBox(height: 32),
+              Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.person_outline),
+                      title: const Text('Edit Profile Details'),
+                      subtitle: const Text('Change name or birthday'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showEditProfileDialog(context, ref),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.lock_outline),
+                      title: const Text('Change Password'),
+                      subtitle: const Text('Secure your account'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showChangePasswordDialog(context, ref),
+                    ),
+
+                    if (user.birthday != null) ...[
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.cake_outlined),
+                        title: const Text('Birthday'),
+                        subtitle: Text(
+                          '${user.birthday!.day.toString().padLeft(2, '0')}.${user.birthday!.month.toString().padLeft(2, '0')}.${user.birthday!.year}',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -59,32 +98,166 @@ class ProfileTab extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: const Text('Edit Profile Details'),
-                subtitle: const Text('Change name or birthday'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showEditProfileDialog(context, ref),
+                leading: const Icon(Icons.mail_outline),
+                title: const Text('Pending Invitations'),
+                subtitle: const Text('Accept or decline group invites'),
+                trailing: invitationsAsync.maybeWhen(
+                  data: (invitations) => invitations.isNotEmpty
+                      ? Badge(
+                          label: Text('${invitations.length}'),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  orElse: () => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              invitationsAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Failed to load invitations: $error',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+                data: (invitations) {
+                  if (invitations.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'No pending invitations',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: invitations.map((invite) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  invite.groupName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Invited by ${invite.invitedByUserName}',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: () async {
+                                        final success = await ref
+                                            .read(invitationsProvider.notifier)
+                                            .declineInvite(invite.id);
+
+                                        if (!context.mounted) return;
+                                        if (!success) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Unable to decline invitation',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Decline'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        final success = await ref
+                                            .read(invitationsProvider.notifier)
+                                            .acceptInvite(invite.id);
+
+                                        if (!context.mounted) return;
+                                        if (success) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Accepted invitation',
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Unable to accept invitation',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Accept'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('Change Password'),
-                subtitle: const Text('Secure your account'),
+                title: const Text('Open full invitations list'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showChangePasswordDialog(context, ref),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const InvitationsScreen(),
+                    ),
+                  );
+                },
               ),
-              if (user.birthday != null) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.cake_outlined),
-                  title: const Text('Birthday'),
-                  subtitle: Text(
-                    '${user.birthday!.day.toString().padLeft(2, '0')}.${user.birthday!.month.toString().padLeft(2, '0')}.${user.birthday!.year}',
-                  ),
-                ),
-              ],
             ],
           ),
         ),

@@ -17,12 +17,12 @@ class CategorySpendingModel {
 
   factory CategorySpendingModel.fromJson(Map<String, dynamic> json) {
     return CategorySpendingModel(
-      categoryId: json['categoryId'],
-      name: json['name'],
-      color: json['color'],
-      emoji: json['emoji'],
-      totalAmount: (json['totalAmount'] as num).toDouble(),
-      transactionCount: json['transactionCount'],
+      categoryId: (json['categoryId'] ?? json['id']) as String?,
+      name: (json['name'] ?? 'Без названия') as String,
+      color: json['color'] as String?,
+      emoji: json['emoji'] as String?,
+      totalAmount: (json['totalAmount'] as num? ?? 0.0).toDouble(),
+      transactionCount: (json['transactionCount'] as num? ?? 0).toInt(),
     );
   }
 

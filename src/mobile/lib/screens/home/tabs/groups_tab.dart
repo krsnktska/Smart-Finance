@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/groups_provider.dart';
+import 'package:mobile/providers/auth_provider.dart'; // Подключаем твой authProvider
 import 'package:mobile/models/group_model.dart';
 import 'package:mobile/screens/group_detail_screen.dart';
 
@@ -10,6 +11,10 @@ class GroupsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsState = ref.watch(groupsProvider);
+
+    // 1. Получаем ID текущего авторизованного пользователя
+    // Если в AuthModel поле называется userId, замени .auth?.id на .auth?.userId
+    final currentUserId = ref.watch(authProvider).auth?.user.id;
 
     return RefreshIndicator(
       onRefresh: () => ref.read(groupsProvider.notifier).loadGroups(),
@@ -70,6 +75,11 @@ class GroupsTab extends ConsumerWidget {
             )
           else
             ...groupsState.groups.map((group) {
+              // 2. Проверяем, является ли текущий пользователь создателем этой конкретной группы
+              final bool isOwner = group.members.any(
+                (m) => m.userId == currentUserId && m.isOwner == true,
+              );
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
@@ -77,18 +87,52 @@ class GroupsTab extends ConsumerWidget {
                   title: Text(group.name),
                   subtitle: Text('${group.members.length} members'),
                   trailing: PopupMenuButton<String>(
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Rename')),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
+                    // 3. Динамически переключаем пункты выпадающего меню
+                    itemBuilder: (context) => isOwner
+                        ? [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Rename'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ]
+                        : [
+                            const PopupMenuItem(
+                              value: 'leave',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.exit_to_app,
+                                    size: 20,
+                                    color: Colors.orange,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Leave Group',
+                                    style: TextStyle(color: Colors.orange),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                     onSelected: (value) {
                       if (value == 'edit') {
                         _showEditGroupDialog(context, ref, group);
                       } else if (value == 'delete') {
                         _showDeleteGroupDialog(
+                          context,
+                          ref,
+                          group.id,
+                          group.name,
+                        );
+                      } else if (value == 'leave') {
+                        _showLeaveGroupDialog(
                           context,
                           ref,
                           group.id,
@@ -110,7 +154,62 @@ class GroupsTab extends ConsumerWidget {
                   },
                 ),
               );
-            }).toList(),
+            }),
+        ],
+      ),
+    );
+  }
+
+  void _showLeaveGroupDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+    String groupName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Leave "$groupName"?'),
+        content: const Text(
+          'You will lose access to this group and all its shared wallets.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final success = await ref
+                  .read(groupsProvider.notifier)
+                  .leaveGroup(groupId);
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
+
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('You left the group'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                final error = ref.read(groupsProvider).error;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(error ?? 'Could not leave group'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Leave'),
+          ),
         ],
       ),
     );

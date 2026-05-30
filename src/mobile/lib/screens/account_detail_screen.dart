@@ -182,8 +182,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                         const SizedBox(width: 8),
                         _buildPresetChip('All Time'),
 
-                        // Вместо Spacer используем фиксированный отступ,
-                        // чтобы кнопка не прижималась вплотную к чипам
                         const SizedBox(width: 16),
 
                         OutlinedButton.icon(
@@ -345,7 +343,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ),
           ),
 
-          // Categories Breakdown Section
           SliverToBoxAdapter(
             child: categorySpendingAsync.when(
               loading: () => const SizedBox(),
@@ -446,7 +443,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          // Linear progress breakdowns
                           ...spendings.map((spending) {
                             final percentage = totalSpend > 0
                                 ? (spending.totalAmount / totalSpend)
@@ -497,7 +493,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ),
           ),
 
-          // Transactions title
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(
@@ -513,7 +508,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             ),
           ),
 
-          // Transactions list
           if (transactionsState.isLoading &&
               transactionsState.transactions.isEmpty)
             const SliverFillRemaining(
@@ -589,7 +583,9 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: cat.categoryColor.withOpacity(0.2),
+                                  color: cat.categoryColor.withValues(
+                                    alpha: 0.2,
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -605,8 +601,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                                     Text(
                                       cat.name,
                                       style: TextStyle(
-                                        color: cat.categoryColor.withOpacity(
-                                          0.9,
+                                        color: cat.categoryColor.withValues(
+                                          alpha: 0.9,
                                         ),
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -761,7 +757,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                     backgroundColor: Colors.green,
                   ),
                 );
-                // Also load the updated info for widget
                 setState(() {});
                 _refreshData();
               } else {

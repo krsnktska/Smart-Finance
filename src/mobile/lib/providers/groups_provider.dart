@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:mobile/config/api_config.dart';
 import 'package:mobile/services/api_client.dart';
 import 'package:mobile/repositories/group_repository.dart';
 import 'package:mobile/models/group_model.dart';
@@ -25,7 +26,7 @@ class GroupsState {
     return GroupsState(
       groups: groups ?? this.groups,
       isLoading: isLoading ?? this.isLoading,
-      error: error,
+      error: error, // Скидає або оновлює помилку
     );
   }
 }
@@ -118,15 +119,36 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     }
   }
 
-  Future<bool> addMember({
+  /// РЕАЛЬНЕ отримання інвайтів групи через репозиторій замість заглушки
+  Future<List<dynamic>> getGroupInvitations(String groupId) async {
+    try {
+      return await groupRepository.getGroupInvitations(groupId);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return [];
+    }
+  }
+
+  /// Виправлений метод відправки інвайту через репозиторій
+  Future<bool> inviteMemberByEmail({
     required String groupId,
-    required String userId,
+    required String email,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await groupRepository.addMember(groupId: groupId, userId: userId);
+      // Викликаємо метод репозиторію, який ми раніше написали
+      final success = await groupRepository.inviteMemberByEmail(
+        groupId: groupId,
+        email: email,
+      );
+
       state = state.copyWith(isLoading: false);
-      return true;
+      if (!success) {
+        state = state.copyWith(
+          error: "Group not found or no user with this email exists.",
+        );
+      }
+      return success;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
@@ -176,6 +198,24 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
       state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> leaveGroup(String groupId) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await groupRepository.leaveGroup(groupId);
+
+      // Если запрос прошел успешно (204), убираем группу из локального стейта
+      state = state.copyWith(
+        groups: state.groups.where((group) => group.id != groupId).toList(),
+        isLoading: false,
+      );
+      return true;
+    } catch (e) {
+      // Сюда прилетят 403 (если ты овнер), 404 или 401
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }

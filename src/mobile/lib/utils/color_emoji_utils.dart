@@ -1,13 +1,10 @@
-/// Utility functions for color and emoji validation/conversion
 class ColorEmojiUtils {
-  /// Validates if the input is a valid hex color code
   static bool isValidHexColor(String input) {
     final value = input.trim();
     final normalized = value.startsWith('#') ? value.substring(1) : value;
     return RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(normalized);
   }
 
-  /// Normalizes hex color to #RRGGBB format
   static String normalizeHexColor(String input) {
     var value = input.trim();
     if (!value.startsWith('#')) {
@@ -16,7 +13,6 @@ class ColorEmojiUtils {
     return value.toUpperCase();
   }
 
-  /// Extracts only emoji characters from text
   static String extractEmojis(String text) {
     final emojiRegex = RegExp(
       r'([\u{1F300}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])',
@@ -25,13 +21,11 @@ class ColorEmojiUtils {
     return emojiRegex.allMatches(text).map((m) => m.group(0)).join();
   }
 
-  /// Checks if text contains only emoji characters
   static bool isEmojiOnly(String text) {
     final extracted = extractEmojis(text);
     return extracted.isNotEmpty && extracted == text;
   }
 
-  /// Color palette for the color picker
   static const List<String> colorPalette = [
     '#F44336',
     '#E91E63',

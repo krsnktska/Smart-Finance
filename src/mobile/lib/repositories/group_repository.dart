@@ -58,6 +58,37 @@ class GroupRepository {
     await apiClient.post('${ApiConfig.groups}/$groupId/members/$userId');
   }
 
+  /// Открытие (отправка) приглашения по email.
+  /// Изменено на Future<bool> или возврат данных, чтобы Notifier знал об успехе.
+  Future<bool> inviteMemberByEmail({
+    required String groupId,
+    required String email,
+  }) async {
+    try {
+      await apiClient.post(
+        '${ApiConfig.groups}/$groupId/invitations',
+        data: {'email': email},
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Получение всех ожидающих инвайтов для группы (owner only).
+  /// Стучится в GET api/groups/{id}/invitations вашего ASP.NET Core контроллера.
+  Future<List<dynamic>> getGroupInvitations(String groupId) async {
+    try {
+      final response = await apiClient.get(
+        '${ApiConfig.groups}/$groupId/invitations',
+        fromJson: (json) => json as List<dynamic>,
+      );
+      return response;
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<void> removeMember({
     required String groupId,
     required String userId,
@@ -75,6 +106,18 @@ class GroupRepository {
     return response;
   }
 
+  Future<List<dynamic>> getMyPendingInvitations() async {
+    try {
+      final response = await apiClient.get(
+        'invitations',
+        fromJson: (json) => json as List<dynamic>,
+      );
+      return response;
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<void> addAccount({
     required String groupId,
     required String accountId,
@@ -87,5 +130,9 @@ class GroupRepository {
     required String accountId,
   }) async {
     await apiClient.delete('${ApiConfig.groups}/$groupId/accounts/$accountId');
+  }
+
+  Future<void> leaveGroup(String groupId) async {
+    await apiClient.delete('${ApiConfig.groups}/$groupId/members/me');
   }
 }

@@ -30,8 +30,9 @@ class AuthRepository {
       'email': email,
       'password': password,
     };
-    if (birthday != null)
+    if (birthday != null) {
       data['birthday'] = birthday.toIso8601String().split('T').first;
+    }
 
     final response = await apiClient.post(
       ApiConfig.register,

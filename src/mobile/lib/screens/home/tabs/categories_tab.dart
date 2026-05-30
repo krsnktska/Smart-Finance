@@ -107,7 +107,7 @@ class CategoriesTab extends ConsumerWidget {
                   ),
                 ),
               );
-            }).toList(),
+            }),
         ],
       ),
     );

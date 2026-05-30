@@ -37,7 +37,7 @@ class TransactionModel {
           ? _parseSpecialType(json['specialType'])
           : null,
       value: (json['value'] as num).toDouble(),
-      // 👇 Добавил .toLocal(), чтобы в UI время отображалось в часовом поясе пользователя
+
       occurredAt: DateTime.parse(json['occurredAt'] as String).toLocal(),
       name: json['name'] as String,
       description: json['description'] as String?,
@@ -66,13 +66,12 @@ class TransactionModel {
     };
   }
 
-  // 👇 Принимаем dynamic, так как бэк может вернуть и int, и String
   static TransactionType _parseTransactionType(dynamic value) {
     if (value is int) {
       if (value >= 0 && value < TransactionType.values.length) {
         return TransactionType.values[value];
       }
-      return TransactionType.expense; // Дефолт на случай выхода за границы
+      return TransactionType.expense;
     }
 
     final String strValue = value.toString().toLowerCase();
@@ -86,7 +85,6 @@ class TransactionModel {
     return type.toString().split('.').last;
   }
 
-  // 👇 Универсальный парсер для SpecialType
   static SpecialType _parseSpecialType(dynamic value) {
     if (value is int) {
       if (value >= 0 && value < SpecialType.values.length) {

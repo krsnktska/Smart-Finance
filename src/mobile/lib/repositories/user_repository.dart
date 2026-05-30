@@ -18,8 +18,9 @@ class UserRepository {
   Future<UserModel> updateMe({String? name, DateTime? birthday}) async {
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
-    if (birthday != null)
+    if (birthday != null) {
       data['birthday'] = birthday.toIso8601String().split('T').first;
+    }
 
     final response = await apiClient.put(
       '${ApiConfig.users}/me',

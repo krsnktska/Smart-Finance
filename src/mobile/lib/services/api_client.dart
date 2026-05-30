@@ -145,7 +145,7 @@ class LoggingInterceptor extends QueuedInterceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (kDebugMode) {
-      print('📤 REQUEST: ${options.method} ${options.path}');
+      print('📤 REQUEST: ${options.method} ${options.path} ${options.uri}');
     }
     if (kDebugMode) {
       print('Headers: ${options.headers}');
@@ -174,10 +174,10 @@ class LoggingInterceptor extends QueuedInterceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      print('ERROR: ${err.message}');
-    }
-    if (kDebugMode) {
+      print('❌ ERROR: ${err.message}');
       print('Status: ${err.response?.statusCode}');
+
+      print('Server Response Data: ${err.response?.data}');
     }
     handler.next(err);
   }

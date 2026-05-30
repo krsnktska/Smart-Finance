@@ -7,6 +7,7 @@ class CategoryModel {
   final String color;
   final String? emoji;
   final String? userId;
+
   CategoryModel({
     required this.id,
     required this.name,
@@ -14,15 +15,18 @@ class CategoryModel {
     this.emoji,
     this.userId,
   });
+
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
-      id: json['id'],
-      name: json['name'],
-      color: json['color'],
-      emoji: json['emoji'],
-      userId: json['userId'],
+      // 📝 Проверяем оба ключа: id и categoryId. Если обоих нет — ставим пустую строку.
+      id: (json['id'] ?? json['categoryId'] ?? '') as String,
+      name: (json['name'] ?? 'Без названия') as String,
+      color: (json['color'] ?? '#808080') as String,
+      emoji: json['emoji'] as String?,
+      userId: json['userId'] as String?,
     );
   }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
