@@ -128,6 +128,23 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         return ServiceResult.Ok();
     }
 
+    public async Task<ServiceResult> LeaveAsync(Guid groupId, Guid userId)
+    {
+        var group = await context.Groups
+            .Include(g => g.UserGroups)
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.UserGroups.Any(ug => ug.UserId == userId));
+
+        if (group is null) return ServiceResult.NotFound();
+
+        var membership = group.UserGroups.First(ug => ug.UserId == userId);
+        if (membership.IsOwner) return ServiceResult.Forbidden();
+
+        context.UserGroups.Remove(membership);
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
     public async Task<ServiceResult<List<AccountResponse>>> GetAccountsAsync(Guid groupId, Guid userId)
     {
         var group = await context.Groups

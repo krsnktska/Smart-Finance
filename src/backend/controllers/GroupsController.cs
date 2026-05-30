@@ -179,6 +179,32 @@ public class GroupsController(IGroupService groupService) : ControllerBase
     }
 
     /// <summary>
+    /// Allows the authenticated user to leave a group they are a member of.
+    /// The group owner cannot leave — they must delete the group instead.
+    /// </summary>
+    /// <param name="id">Group identifier.</param>
+    /// <response code="204">User left the group successfully.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="403">User is the owner of the group and cannot leave.</response>
+    /// <response code="404">Group not found or user is not a member.</response>
+    [HttpDelete("{id:guid}/members/me")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Leave(Guid id)
+    {
+        var result = await groupService.LeaveAsync(id, GetCurrentUserId());
+        return result.Status switch
+        {
+            ServiceStatus.Ok => NoContent(),
+            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.Forbidden => Forbid(),
+            _ => StatusCode(500)
+        };
+    }
+
+    /// <summary>
     /// Returns all accounts shared in a group.
     /// </summary>
     /// <param name="id">Group identifier.</param>
