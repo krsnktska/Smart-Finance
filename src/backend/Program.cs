@@ -124,4 +124,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+app.MapGet("/", () => Results.Ok("Smart Finance API is running!"));
+
 app.Run();

@@ -1,5 +1,8 @@
 using SmartFinance.Services.Interfaces;
 using Tesseract;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Jpeg;
 
 namespace SmartFinance.Services;
 
@@ -13,8 +16,32 @@ public class OcrService(IConfiguration configuration, ILogger<OcrService> logger
         var tempFile = Path.GetTempFileName();
         try
         {
+            if (imageStream.CanSeek)
+            {
+                imageStream.Position = 0;
+            }
+
+            // Load and preprocess the image using ImageSharp
             await using (var fs = File.Create(tempFile))
-                await imageStream.CopyToAsync(fs);
+            {
+                using (var image = await Image.LoadAsync(imageStream))
+                {
+                    // Proportional resize to 1200px width if it's too large
+                    const int maxScaleWidth = 1200;
+                    if (image.Width > maxScaleWidth)
+                    {
+                        int width = maxScaleWidth;
+                        int height = (int)((double)image.Height / image.Width * width);
+                        image.Mutate(x => x.Resize(width, height));
+                    }
+
+                    // Convert to grayscale to optimize OCR and reduce file size
+                    image.Mutate(x => x.Grayscale());
+
+                    // Save as highly compressed JPEG
+                    await image.SaveAsync(fs, new JpegEncoder { Quality = 75 });
+                }
+            }
 
             using var engine = new TesseractEngine(_tessDataPath, _languages, EngineMode.Default);
             using var img = Pix.LoadFromFile(tempFile);
