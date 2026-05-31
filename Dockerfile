@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /app/publish .
 
 RUN mkdir -p /app/x64 && \
+    ln -sf /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so && \
     ln -sf /usr/lib/x86_64-linux-gnu/liblept.so /app/x64/libleptonica-1.82.0.so && \
     ln -sf /usr/lib/x86_64-linux-gnu/libtesseract.so /app/x64/libtesseract50.so
 
