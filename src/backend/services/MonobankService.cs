@@ -143,6 +143,46 @@ public class MonobankService(
         return ServiceResult<List<BankIntegrationResponse>>.Ok(integrations.Select(MapIntegration).ToList());
     }
 
+    public async Task<ServiceResult<List<MonobankAccountResponse>>> GetAccountsAsync(string apiToken)
+    {
+        var client = CreateClient(apiToken);
+
+        try
+        {
+            var response = await client.GetAsync($"{MonoBaseUrl}/personal/client-info");
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Failed to fetch client info from Monobank: {StatusCode}", response.StatusCode);
+                return ServiceResult<List<MonobankAccountResponse>>.BadRequest();
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var clientInfo = JsonSerializer.Deserialize<MonoClientInfo>(json);
+
+            if (clientInfo?.Accounts is null)
+            {
+                return ServiceResult<List<MonobankAccountResponse>>.Ok([]);
+            }
+
+            var accountResponses = clientInfo.Accounts.Select(acc => new MonobankAccountResponse(
+                acc.Id,
+                acc.Type ?? "unknown",
+                ResolveCurrency(acc.CurrencyCode),
+                acc.Balance / 100m,
+                acc.CreditLimit / 100m,
+                acc.MaskedPan?.FirstOrDefault(),
+                acc.Iban
+            )).ToList();
+
+            return ServiceResult<List<MonobankAccountResponse>>.Ok(accountResponses);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get Monobank accounts");
+            return ServiceResult<List<MonobankAccountResponse>>.BadRequest();
+        }
+    }
+
     private HttpClient CreateClient(string token)
     {
         var client = httpClientFactory.CreateClient("Monobank");
@@ -172,7 +212,11 @@ public class MonobankService(
     private record MonoAccount(
         [property: JsonPropertyName("id")] string Id,
         [property: JsonPropertyName("currencyCode")] int CurrencyCode,
-        [property: JsonPropertyName("balance")] long Balance);
+        [property: JsonPropertyName("balance")] long Balance,
+        [property: JsonPropertyName("creditLimit")] long CreditLimit,
+        [property: JsonPropertyName("type")] string? Type,
+        [property: JsonPropertyName("maskedPan")] List<string>? MaskedPan,
+        [property: JsonPropertyName("iban")] string? Iban);
 
     private record MonoTransaction(
         [property: JsonPropertyName("id")] string Id,

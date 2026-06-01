@@ -27,6 +27,27 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
     }
 
     /// <summary>
+    /// Fetches all available Monobank accounts using a personal API token.
+    /// Used during setup so the user can choose which specific account to sync.
+    /// </summary>
+    /// <param name="apiToken">Monobank API token.</param>
+    [HttpGet("monobank/accounts")]
+    [ProducesResponseType(typeof(List<MonobankAccountResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetMonobankAccounts([FromQuery] string apiToken)
+    {
+        if (string.IsNullOrWhiteSpace(apiToken))
+            return BadRequest("API Token is required.");
+
+        var result = await monobankService.GetAccountsAsync(apiToken);
+        return result.Status switch
+        {
+            ServiceStatus.Ok => Ok(result.Data),
+            _ => BadRequest()
+        };
+    }
+
+    /// <summary>
     /// Connects a Monobank account using a personal API token.
     /// Get your token at https://api.monobank.ua
     /// </summary>
