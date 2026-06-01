@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile/models/receipt_scan_model.dart';
 import 'package:mobile/models/transaction_model.dart';
 import 'package:mobile/providers/categories_provider.dart';
+import 'package:mobile/providers/receipt_provider.dart';
 import 'package:mobile/providers/transactions_provider.dart';
 import 'package:mobile/widgets/app_buttons.dart';
 import 'package:mobile/widgets/app_text_field.dart';
@@ -39,6 +42,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _descriptionController = TextEditingController();
 
   bool _isSaving = false;
+  bool _isScanningReceipt = false;
+  String? _scannedTransactionId;
 
   @override
   void initState() {
@@ -52,6 +57,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _name = tx.name;
       _description = tx.description;
       _selectedCategoryIds.addAll(tx.categories.map((c) => c.id));
+      _scannedTransactionId = tx.id;
 
       _nameController.text = _name;
       _valueController.text = _value.toString();
@@ -63,6 +69,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _occurredAt = DateTime.now();
       _name = '';
       _description = '';
+      _scannedTransactionId = null;
     }
 
     Future.microtask(() {
@@ -121,9 +128,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final dateUtc = _occurredAt.toUtc();
 
     bool success;
-    if (widget.transaction != null) {
+    final transactionId = widget.transaction?.id ?? _scannedTransactionId;
+    if (transactionId != null) {
       success = await notifier.updateTransaction(
-        transactionId: widget.transaction!.id,
+        transactionId: transactionId,
         type: _type,
         specialType: _specialType,
         value: value,
@@ -172,6 +180,171 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _scanReceipt(ImageSource source) async {
+    final pickedImage = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: 80,
+    );
+    if (pickedImage == null) return;
+
+    setState(() {
+      _isScanningReceipt = true;
+    });
+
+    try {
+      final scanResult = await ref
+          .read(receiptRepositoryProvider)
+          .scanReceipt(
+            accountId: widget.accountId,
+            imagePath: pickedImage.path,
+          );
+      _populateFromScan(scanResult);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Receipt scanned. Review the transaction before saving.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt scan failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanningReceipt = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showReceiptSourcePicker() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source != null) {
+      await _scanReceipt(source);
+    }
+  }
+
+  Future<void> _showReceiptUrlDialog() async {
+    final urlController = TextEditingController();
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Receipt URL'),
+        content: TextField(
+          controller: urlController,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'Enter receipt URL',
+            hintText: 'https://example.com/receipt',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = urlController.text.trim();
+              Navigator.pop(context, value.isEmpty ? null : value);
+            },
+            child: const Text('Scan'),
+          ),
+        ],
+      ),
+    );
+
+    if (url != null && url.isNotEmpty) {
+      await _scanReceiptFromUrl(url);
+    }
+  }
+
+  Future<void> _scanReceiptFromUrl(String url) async {
+    setState(() {
+      _isScanningReceipt = true;
+    });
+
+    try {
+      final scanResult = await ref
+          .read(receiptRepositoryProvider)
+          .scrapeReceipt(accountId: widget.accountId, url: url);
+      _populateFromScan(scanResult);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Receipt scanned from URL. Review the transaction before saving.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt scan failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanningReceipt = false;
+        });
+      }
+    }
+  }
+
+  void _populateFromScan(ReceiptScanModel scan) {
+    final tx = scan.transaction;
+    setState(() {
+      _scannedTransactionId = tx.id;
+      _type = tx.type;
+      _specialType = tx.specialType;
+      _occurredAt = tx.occurredAt;
+      _nameController.text = tx.name;
+      _valueController.text = tx.value.toString();
+      _descriptionController.text = tx.description ?? '';
+      _selectedCategoryIds
+        ..clear()
+        ..addAll(tx.categories.map((c) => c.id));
+    });
   }
 
   @override
@@ -226,6 +399,56 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
+
+                  if (widget.transaction == null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _isScanningReceipt
+                              ? null
+                              : _showReceiptSourcePicker,
+                          icon: const Icon(Icons.camera_alt_outlined),
+                          label: Text(
+                            _isScanningReceipt
+                                ? 'Scanning receipt...'
+                                : 'Upload receipt',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ElevatedButton.icon(
+                          onPressed: _isScanningReceipt
+                              ? null
+                              : _showReceiptUrlDialog,
+                          icon: const Icon(Icons.link),
+                          label: const Text('Scan receipt from URL'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.secondary,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onSecondary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_scannedTransactionId != null)
+                          const Text(
+                            'Receipt data loaded. You can edit the values and save the transaction.',
+                            style: TextStyle(color: Colors.green),
+                          ),
+                      ],
+                    ),
 
                   AppTextField(
                     controller: _valueController,

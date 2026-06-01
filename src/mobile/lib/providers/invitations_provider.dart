@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:mobile/models/group_invitation_model.dart';
@@ -34,7 +35,9 @@ class InvitationsNotifier
       final invitations = await _repository.getPendingInvitations();
       state = AsyncValue.data(invitations);
     } catch (e, stackTrace) {
-      print('🚨 Error fetching invitations: $e');
+      if (kDebugMode) {
+        print('🚨 Error fetching invitations: $e');
+      }
       state = AsyncValue.error(e, stackTrace);
     }
   }

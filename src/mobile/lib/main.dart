@@ -1,17 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/providers/user_provider.dart';
 import 'package:mobile/providers/accounts_provider.dart';
-
-import 'package:mobile/screens/auth.dart';
+import 'package:mobile/screens/auth/login_screen.dart';
 import 'package:mobile/screens/home.dart';
 import 'package:mobile/screens/splash_screen.dart';
 import 'package:mobile/providers/invitations_provider.dart';
+import 'package:mobile/providers/gmail_provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(ProviderScope(child: const MyApp()));
 }
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 final colorScheme = ColorScheme.fromSeed(
   brightness: Brightness.dark,
@@ -28,69 +35,146 @@ final colorScheme = ColorScheme.fromSeed(
 
 final theme = ThemeData.dark().copyWith(
   colorScheme: colorScheme,
-  textTheme: ThemeData.dark().textTheme.copyWith(
-    titleLarge: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-      color: colorScheme.onSurface,
-    ),
-    titleMedium: TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w600,
-      color: colorScheme.onSurface,
-    ),
-    titleSmall: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-      color: colorScheme.onSurface,
-    ),
-    bodyLarge: TextStyle(fontSize: 16, color: colorScheme.onSurface),
-    bodyMedium: TextStyle(fontSize: 14, color: colorScheme.onSurface),
-    bodySmall: TextStyle(fontSize: 12, color: colorScheme.onSurface),
-  ),
-  appBarTheme: AppBarTheme(
-    backgroundColor: colorScheme.surface,
-
-    titleTextStyle: TextStyle(
-      fontSize: 20,
-      color: colorScheme.onSurface,
-      fontWeight: FontWeight.bold,
-    ),
-  ),
   scaffoldBackgroundColor: colorScheme.surface,
 );
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
 
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  static const _deepLinkChannel = MethodChannel('smartfinance/deep_link');
+  Uri? _pendingDeepLink;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initDeepLinkListener();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _deepLinkChannel.setMethodCallHandler(null);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        ref.read(gmailIntegrationProvider.notifier).loadStatus();
+      }
+    }
+  }
+
+  Future<void> _initDeepLinkListener() async {
+    _deepLinkChannel.setMethodCallHandler((call) async {
+      if (call.method == 'linkChanged' && call.arguments is String) {
+        final uri = Uri.tryParse(call.arguments as String);
+        if (uri != null) {
+          _handleDeepLink(uri);
+        }
+      }
+      return null;
+    });
+
+    try {
+      final initialLink = await _deepLinkChannel.invokeMethod<String>(
+        'getInitialLink',
+      );
+      if (initialLink != null) {
+        final uri = Uri.tryParse(initialLink);
+        if (uri != null) {
+          _handleDeepLink(uri);
+        }
+      }
+    } on PlatformException {
+      // ignore: avoid_print
+      print('Failed to get initial deep link');
+    }
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.scheme != 'smartfinance') return;
+    // ignore: avoid_print
+    print('Deep link received: $uri');
+
+    if (uri.host != 'gmail-callback') return;
+
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated) {
+      _pendingDeepLink = uri;
+      // ignore: avoid_print
+      print('Deep link deferred until authentication is ready');
+      return;
+    }
+
+    ref.read(gmailIntegrationProvider.notifier).loadStatus();
+  }
+
+  void _processPendingDeepLink() {
+    final pendingLink = _pendingDeepLink;
+    if (pendingLink == null) return;
+    _pendingDeepLink = null;
+    _handleDeepLink(pendingLink);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen(authProvider, (prev, next) {
       if (prev?.isAuthenticated == false && next.isAuthenticated) {
         ref.read(userProvider.notifier).loadUser();
         ref.read(accountsProvider.notifier).loadAccounts();
         ref.read(invitationsProvider.notifier).fetchInvitations();
+        _processPendingDeepLink();
+
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            (route) => false,
+          );
+        });
+        return;
+      }
+
+      if (prev?.isInitializing == true &&
+          next.isInitializing == false &&
+          !next.isAuthenticated) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          navigatorKey.currentState?.pushAndRemoveUntil(
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 1400),
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const LoginScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: animation,
+                        curve: const Interval(0.4, 1.0, curve: Curves.easeIn),
+                      ),
+                      child: child,
+                    );
+                  },
+            ),
+            (route) => false,
+          );
+        });
       }
     });
 
     return MaterialApp(
       title: 'SmartFinance',
       theme: theme,
-      home: _buildHome(authState),
+      navigatorKey: navigatorKey,
+      home: const SplashScreen(),
     );
-  }
-
-  Widget _buildHome(AuthState authState) {
-    if (authState.isInitializing) {
-      return const SplashScreen();
-    }
-
-    if (authState.isAuthenticated) {
-      return const HomeScreen();
-    }
-
-    return const AuthScreen();
   }
 }

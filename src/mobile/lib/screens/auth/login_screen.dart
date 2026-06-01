@@ -63,14 +63,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      // Залишаємо AppBar пустим або прибираємо зовсім, щоб логотип красиво став зверху
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      // Убираем AppBar полностью, чтобы элементы летели строго в свои координаты
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 10),
+            // Вместо AppBar делаем аккуратный отступ под челку/статусбар
+            SizedBox(height: MediaQuery.of(context).padding.top + 20),
 
             // ─── АНІМОВАНИЙ БЛОК ЛОГОТИПУ ───
             Center(
@@ -79,7 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Hero(
                     tag: 'app_wallet_icon',
                     child: Container(
-                      width: 90, // Трохи міняємо розмір для екрану логіну
+                      width: 90,
                       height: 90,
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,

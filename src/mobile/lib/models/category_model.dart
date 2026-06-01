@@ -18,7 +18,6 @@ class CategoryModel {
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
-      // 📝 Проверяем оба ключа: id и categoryId. Если обоих нет — ставим пустую строку.
       id: (json['id'] ?? json['categoryId'] ?? '') as String,
       name: (json['name'] ?? 'Без названия') as String,
       color: (json['color'] ?? '#808080') as String,

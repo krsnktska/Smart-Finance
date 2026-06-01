@@ -25,10 +25,15 @@ class ApiClient {
   Future<T> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
     T Function(dynamic)? fromJson,
   }) async {
     try {
-      final response = await _dio.get(path, queryParameters: queryParameters);
+      final response = await _dio.get(
+        path,
+        queryParameters: queryParameters,
+        options: headers != null ? Options(headers: headers) : null,
+      );
       return _handleResponse(response, fromJson);
     } on DioException catch (e) {
       throw _handleError(e);
@@ -39,13 +44,38 @@ class ApiClient {
     String path, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      if (data is FormData) {
+        // Temporarily clear base contentType so Dio can generate multipart boundary
+        final prevContentType = _dio.options.contentType;
+        _dio.options.contentType = null;
+        try {
+          // Build headers from current options but remove any content-type
+          final newHeaders = Map<String, dynamic>.from(_dio.options.headers);
+          if (headers != null) {
+            newHeaders.addAll(headers);
+          }
+          newHeaders.remove(Headers.contentTypeHeader);
+          final response = await _dio.post(
+            path,
+            data: data,
+            queryParameters: queryParameters,
+            options: Options(headers: newHeaders),
+          );
+          return _handleResponse(response, fromJson);
+        } finally {
+          _dio.options.contentType = prevContentType;
+        }
+      }
+
       final response = await _dio.post(
         path,
         data: data,
         queryParameters: queryParameters,
+        options: headers != null ? Options(headers: headers) : null,
       );
       return _handleResponse(response, fromJson);
     } on DioException catch (e) {
@@ -113,6 +143,8 @@ class ApiClient {
     _dio.options.headers.remove('Authorization');
   }
 
+  String? get authHeader => _dio.options.headers['Authorization'] as String?;
+
   T _handleResponse<T>(Response response, T Function(dynamic)? fromJson) {
     if (fromJson != null) {
       return fromJson(response.data);
@@ -121,13 +153,20 @@ class ApiClient {
   }
 
   Exception _handleError(DioException error) {
+    final requestInfo =
+        '${error.requestOptions.method} ${error.requestOptions.path}';
     if (error.response != null) {
       final statusCode = error.response?.statusCode ?? 0;
       final message =
           error.response?.data?['message'] ?? error.message ?? 'Unknown error';
-      return ApiException(message: message, statusCode: statusCode);
+      return ApiException(
+        message: '$requestInfo -> $message',
+        statusCode: statusCode,
+      );
     }
-    return ApiException(message: error.message ?? 'Network error');
+    return ApiException(
+      message: '$requestInfo -> ${error.message ?? 'Network error'}',
+    );
   }
 }
 
@@ -174,9 +213,10 @@ class LoggingInterceptor extends QueuedInterceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      print('❌ ERROR: ${err.message}');
+      print(
+        '❌ ERROR: ${err.requestOptions.method} ${err.requestOptions.path} - ${err.message}',
+      );
       print('Status: ${err.response?.statusCode}');
-
       print('Server Response Data: ${err.response?.data}');
     }
     handler.next(err);

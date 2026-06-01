@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/models/account_model.dart';
@@ -18,7 +19,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   List<AccountModel> _groupAccounts = [];
   bool _isLoadingAccounts = false;
 
-  // Стейт для хранения ожидающих инвайтов
   List<dynamic> _pendingInvitations = [];
   bool _isLoadingInvitations = false;
 
@@ -58,15 +58,15 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
       if (mounted) {
         setState(() {
-          // ФИЛЬТРАЦИЯ: Оставляем только те инвайты, у которых статус "Pending"
-          // Если тебе нужно отображать вообще все инвайты, просто удали `.where(...)`
           _pendingInvitations = invitations.where((invite) {
             return invite['status'] == 'Pending';
           }).toList();
         });
       }
-    } catch (_) {
-      // Логгирование или обработка ошибок по вкусу
+    } catch (e) {
+      if (mounted && kDebugMode) {
+        print('Failed to load group invitations: $e');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -233,7 +233,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         builder: (context, setState) => AlertDialog(
           title: const Text('Link Wallet to Group'),
           content: DropdownButtonFormField<AccountModel>(
-            value: selectedAccount,
+            initialValue: selectedAccount,
             decoration: const InputDecoration(
               labelText: 'Select Wallet',
               border: OutlineInputBorder(),
@@ -383,7 +383,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Section: Members
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -491,7 +490,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
             ),
           ),
 
-          // Section: Pending Invitations
           if (isCurrentUserOwner &&
               (_isLoadingInvitations || _pendingInvitations.isNotEmpty)) ...[
             const SizedBox(height: 24),
@@ -521,8 +519,8 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   itemBuilder: (context, index) {
                     final invite = _pendingInvitations[index];
 
-                    // ИСПРАВЛЕНИЕ ТУТ: Читаем данные из Map через квадратные скобки
                     final email = invite['invitedUserEmail'] ?? 'Unknown Email';
+                    final invitationId = invite['id'] ?? '';
 
                     return ListTile(
                       leading: CircleAvatar(
@@ -537,24 +535,102 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: const Text('Waiting for response...'),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orange[200]!),
-                        ),
-                        child: Text(
-                          'Pending',
-                          style: TextStyle(
-                            color: Colors.orange[800],
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange[200]!),
+                            ),
+                            child: Text(
+                              'Pending',
+                              style: TextStyle(
+                                color: Colors.orange[800],
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                        ),
+                          PopupMenuButton(
+                            itemBuilder: (BuildContext context) => [
+                              PopupMenuItem(
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.close, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Cancel Invitation'),
+                                  ],
+                                ),
+                                onTap: () async {
+                                  final scaffoldMessenger =
+                                      ScaffoldMessenger.of(context);
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Cancel Invitation?'),
+                                      content: Text(
+                                        'Are you sure you want to cancel the invitation to $email?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('No'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('Yes, Cancel'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirmed == true) {
+                                    final success = await ref
+                                        .read(groupsProvider.notifier)
+                                        .cancelInvitation(
+                                          groupId: widget.groupId,
+                                          invitationId: invitationId,
+                                        );
+
+                                    if (success) {
+                                      scaffoldMessenger.showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Invitation cancelled'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      _loadGroupInvitations();
+                                    } else {
+                                      final error = ref
+                                          .read(groupsProvider)
+                                          .error;
+                                      scaffoldMessenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            error ??
+                                                'Failed to cancel invitation',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -564,7 +640,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
 
           const SizedBox(height: 24),
 
-          // Section: Shared Wallets
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -634,7 +709,6 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
   }
 }
 
-// Вынесено в отдельный виджет, чтобы избежать константных предупреждений во встроенных коллекциях
 class AppAccountListTile extends StatelessWidget {
   final AccountModel account;
   final bool isCurrentUserOwner;

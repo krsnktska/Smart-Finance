@@ -78,7 +78,7 @@ class InvitationsScreen extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    invite.groupName, // Название группы
+                                    invite.groupName,
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -86,7 +86,7 @@ class InvitationsScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Invited by ${invite.invitedByUserName}', // Кто пригласил
+                                    'Invited by ${invite.invitedByUserName}',
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.grey[600],

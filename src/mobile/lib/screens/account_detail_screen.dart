@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/models/account_model.dart';
+import 'package:mobile/models/bank_integration_model.dart';
 import 'package:mobile/models/category_spending_model.dart';
+import 'package:mobile/models/monobank_account_model.dart';
 import 'package:mobile/models/transaction_model.dart';
+import 'package:mobile/providers/bank_integration_provider.dart';
 import 'package:mobile/providers/accounts_provider.dart';
 import 'package:mobile/providers/transactions_provider.dart';
+import 'package:mobile/providers/gmail_provider.dart';
 import 'package:mobile/screens/transaction_form_screen.dart';
+import 'package:mobile/utils/currency_utils.dart';
 
 class AccountDetailScreen extends ConsumerStatefulWidget {
   final AccountModel account;
@@ -30,6 +36,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       ref
           .read(transactionsProvider(widget.account.id).notifier)
           .loadTransactions();
+      ref.read(bankIntegrationsProvider.notifier).loadIntegrations();
+      ref.read(gmailIntegrationProvider.notifier).loadStatus();
     });
   }
 
@@ -44,7 +52,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
         _fromDate = now.subtract(const Duration(days: 30));
         _toDate = now;
       } else {
-        // All Time
         _fromDate = null;
         _toDate = null;
       }
@@ -116,6 +123,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
 
     final params = (accountId: widget.account.id, from: _fromDate, to: _toDate);
 
+    final bankState = ref.watch(bankIntegrationsProvider);
     final summaryAsync = ref.watch(accountSummaryProvider(params));
     final categorySpendingAsync = ref.watch(categorySpendingProvider(params));
 
@@ -211,8 +219,24 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
               ),
             ),
           ),
-
-          // Financial Summary Cards
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: _buildMonobankCard(bankState),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: _buildGmailCard(ref.watch(gmailIntegrationProvider)),
+            ),
+          ),
           SliverToBoxAdapter(
             child: summaryAsync.when(
               loading: () => const Center(
@@ -376,7 +400,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          // Custom Donut Chart and legend
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -536,130 +559,157 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
               ),
             )
           else
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final transaction =
-                    transactionsState.transactions[transactionsState
-                            .transactions
-                            .length -
-                        1 -
-                        index];
-                final isIncome = transaction.type == TransactionType.income;
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 6.0,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isIncome
-                          ? Colors.green[50]
-                          : Colors.red[50],
-                      child: Icon(
-                        isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                        color: isIncome ? Colors.green : Colors.red,
-                      ),
-                    ),
-                    title: Text(
-                      transaction.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_formatDateTime(transaction.occurredAt)),
-                        if (transaction.categories.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: transaction.categories.map((cat) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cat.categoryColor.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (cat.emoji != null) ...[
-                                      Text(
-                                        cat.emoji!,
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                      const SizedBox(width: 2),
-                                    ],
-                                    Text(
-                                      cat.name,
-                                      style: TextStyle(
-                                        color: cat.categoryColor.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${isIncome ? '+' : '-'}${transaction.value.toStringAsFixed(2)} ${transaction.currency}',
-                          style: TextStyle(
-                            color: isIncome ? Colors.green : Colors.red,
+            Builder(
+              builder: (context) {
+                final items = _buildTransactionListItems(
+                  transactionsState.transactions,
+                );
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = items[index];
+
+                    if (item is _TransactionSectionHeader) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: Text(
+                          item.title,
+                          style: const TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            letterSpacing: 1.0,
                           ),
                         ),
-                        PopupMenuButton<String>(
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit'),
+                      );
+                    }
+
+                    final transaction =
+                        (item as _TransactionSectionTransaction).transaction;
+                    final isIncome = transaction.type == TransactionType.income;
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 6.0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isIncome
+                              ? Colors.green[50]
+                              : Colors.red[50],
+                          child: Icon(
+                            isIncome
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            color: isIncome ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        title: Text(
+                          transaction.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_formatDateTime(transaction.occurredAt)),
+                            if (transaction.categories.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: transaction.categories.map((cat) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cat.categoryColor.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (cat.emoji != null) ...[
+                                          Text(
+                                            cat.emoji!,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 2),
+                                        ],
+                                        Text(
+                                          cat.name,
+                                          style: TextStyle(
+                                            color: cat.categoryColor.withValues(
+                                              alpha: 0.9,
+                                            ),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${isIncome ? '+' : '-'}${transaction.value.toStringAsFixed(2)} ${transaction.currency}',
+                              style: TextStyle(
+                                color: isIncome ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                             ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Delete'),
+                            PopupMenuButton<String>(
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Edit'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Text('Delete'),
+                                ),
+                              ],
+                              onSelected: (val) {
+                                if (val == 'edit') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TransactionFormScreen(
+                                            accountId: widget.account.id,
+                                            currency: widget.account.currency,
+                                            transaction: transaction,
+                                          ),
+                                    ),
+                                  ).then((_) => _refreshData());
+                                } else if (val == 'delete') {
+                                  _confirmDeleteTransaction(transaction.id);
+                                }
+                              },
                             ),
                           ],
-                          onSelected: (val) {
-                            if (val == 'edit') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => TransactionFormScreen(
-                                    accountId: widget.account.id,
-                                    currency: widget.account.currency,
-                                    transaction: transaction,
-                                  ),
-                                ),
-                              ).then((_) => _refreshData());
-                            } else if (val == 'delete') {
-                              _confirmDeleteTransaction(transaction.id);
-                            }
-                          },
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }, childCount: items.length),
                 );
-              }, childCount: transactionsState.transactions.length),
+              },
             ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
@@ -704,31 +754,590 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
+  String _transactionSourceLabel(TransactionModel transaction) {
+    final description = transaction.description?.toLowerCase() ?? '';
+    final name = transaction.name.toLowerCase();
+
+    if (description.contains('gmail') ||
+        description.contains('гмайл') ||
+        name.contains('gmail')) {
+      return 'GMAIL';
+    }
+    if (description.contains('monobank') ||
+        description.contains('монобанк') ||
+        name.contains('monobank')) {
+      return 'МОНО';
+    }
+    return 'OTHER';
+  }
+
+  List<_TransactionListItem> _buildTransactionListItems(
+    List<TransactionModel> transactions,
+  ) {
+    final grouped = <String, List<TransactionModel>>{};
+    for (final transaction in transactions) {
+      final source = _transactionSourceLabel(transaction);
+      grouped.putIfAbsent(source, () => []).add(transaction);
+    }
+
+    final orderedKeys = ['МОНО', 'GMAIL', 'OTHER'];
+    final items = <_TransactionListItem>[];
+
+    for (final key in orderedKeys) {
+      final group = grouped[key];
+      if (group == null || group.isEmpty) continue;
+
+      items.add(_TransactionSectionHeader(key));
+      for (final transaction in group) {
+        items.add(_TransactionSectionTransaction(transaction));
+      }
+    }
+
+    // Add any additional groups discovered later, preserving insertion order.
+    for (final entry in grouped.entries) {
+      if (orderedKeys.contains(entry.key)) continue;
+      if (entry.value.isEmpty) continue;
+      items.add(_TransactionSectionHeader(entry.key));
+      for (final transaction in entry.value) {
+        items.add(_TransactionSectionTransaction(transaction));
+      }
+    }
+
+    return items;
+  }
+
+  Future<void> _showMonobankSetupDialog() async {
+    final apiTokenController = TextEditingController();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        List<MonobankAccountModel> accounts = [];
+        MonobankAccountModel? selectedAccount;
+        bool isLoading = false;
+        String? fetchError;
+        bool hasLoaded = false;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Connect Monobank'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: apiTokenController,
+                    decoration: const InputDecoration(
+                      labelText: 'Monobank Token',
+                      hintText: 'Enter your Monobank API token',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final token = apiTokenController.text.trim();
+                            if (token.isEmpty) return;
+                            setState(() {
+                              isLoading = true;
+                              fetchError = null;
+                              hasLoaded = false;
+                            });
+
+                            try {
+                              final fetchedAccounts = await ref
+                                  .read(bankIntegrationRepositoryProvider)
+                                  .listMonobankAccounts(token);
+                              setState(() {
+                                accounts = fetchedAccounts;
+                                selectedAccount = fetchedAccounts.isNotEmpty
+                                    ? fetchedAccounts.first
+                                    : null;
+                                hasLoaded = true;
+                              });
+                            } catch (e) {
+                              setState(() {
+                                fetchError =
+                                    'Failed to load Monobank accounts.';
+                                accounts = [];
+                                selectedAccount = null;
+                                hasLoaded = true;
+                              });
+                            } finally {
+                              setState(() {
+                                isLoading = false;
+                              });
+                            }
+                          },
+                    icon: const Icon(Icons.search),
+                    label: const Text('Load Monobank Accounts'),
+                  ),
+                  const SizedBox(height: 12),
+                  if (isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (fetchError != null)
+                    Text(
+                      fetchError!,
+                      style: const TextStyle(color: Colors.redAccent),
+                    )
+                  else if (hasLoaded && accounts.isEmpty)
+                    const Text(
+                      'No accounts found for this token. Check the token and try again.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    )
+                  else if (accounts.isNotEmpty) ...[
+                    const Text(
+                      'Select the Monobank account you want to connect:',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 180,
+                      width: double.maxFinite,
+                      child: ListView.builder(
+                        itemCount: accounts.length,
+                        itemBuilder: (context, index) {
+                          final account = accounts[index];
+                          return RadioListTile<MonobankAccountModel>(
+                            value: account,
+                            groupValue: selectedAccount,
+                            onChanged: (value) {
+                              setState(() {
+                                selectedAccount = value;
+                              });
+                            },
+                            title: Text(
+                              account.accountName != null
+                                  ? '${account.accountName} — ${account.currency}'
+                                  : 'Account ${account.id.substring(0, 6)}... ${account.currency}',
+                            ),
+                            subtitle: Text(
+                              'Balance: ${account.readableBalance}',
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ] else
+                    const Text(
+                      'Enter a Monobank token and load accounts before connecting.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      isLoading || accounts.isEmpty || selectedAccount == null
+                      ? null
+                      : () async {
+                          final token = apiTokenController.text.trim();
+                          if (token.isEmpty) return;
+                          Navigator.pop(context);
+                          final success = await ref
+                              .read(bankIntegrationsProvider.notifier)
+                              .setupMonobank(
+                                apiToken: token,
+                                accountId: widget.account.id,
+                                bankAccountId: selectedAccount!.id,
+                              );
+                          if (!context.mounted) return;
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success
+                                    ? 'Monobank connected successfully.'
+                                    : 'Failed to connect Monobank.',
+                              ),
+                              backgroundColor: success
+                                  ? Colors.green
+                                  : Colors.redAccent,
+                            ),
+                          );
+                        },
+                  child: const Text('Connect'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _syncMonobankNow(String integrationId) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final success = await ref
+        .read(bankIntegrationsProvider.notifier)
+        .syncMonobank(integrationId: integrationId);
+
+    if (!context.mounted) return;
+    if (success) {
+      await ref
+          .read(transactionsProvider(widget.account.id).notifier)
+          .loadTransactions();
+      final message =
+          ref.read(bankIntegrationsProvider).message ??
+          'Monobank sync completed.';
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.green),
+      );
+    } else {
+      final error =
+          ref.read(bankIntegrationsProvider).error ??
+          'Failed to sync Monobank transactions.';
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  Widget _buildGmailCard(GmailIntegrationState gmailState) {
+    final connected = gmailState.status != null;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Gmail Receipts',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              connected
+                  ? 'Connected as ${gmailState.status!.email}'
+                  : 'Connect Gmail to import electronic receipts from your inbox.',
+            ),
+            if (connected && gmailState.status!.lastScannedAt != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Last scanned: ${_formatDateTime(gmailState.status!.lastScannedAt!)}',
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+            ],
+            if (gmailState.error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                gmailState.error!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
+            if (gmailState.message != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                gmailState.message!,
+                style: const TextStyle(color: Colors.green),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: gmailState.isLoading
+                        ? null
+                        : () => _connectGmail(),
+                    child: Text(
+                      connected ? 'Reconnect Gmail' : 'Connect Gmail',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: connected && !gmailState.isScanning
+                        ? () => _scanGmail()
+                        : null,
+                    child: Text(
+                      gmailState.isScanning ? 'Scanning...' : 'Scan Gmail',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _connectGmail() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      final authUrl = await ref
+          .read(gmailIntegrationProvider.notifier)
+          .requestAuthorizationUrl(accountId: widget.account.id);
+      final uri = Uri.parse(authUrl);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open Gmail authorization link.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Gmail authorization opened in browser. After approval, return to the app and refresh status.',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to start Gmail authorization: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Future<void> _scanGmail() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      final scanResults = await ref
+          .read(gmailIntegrationProvider.notifier)
+          .scanInbox(accountId: widget.account.id);
+      await ref
+          .read(transactionsProvider(widget.account.id).notifier)
+          .loadTransactions();
+      if (!mounted) return;
+      final message = scanResults.isEmpty
+          ? 'No new receipts found in Gmail.'
+          : 'Imported ${scanResults.length} receipts from Gmail.';
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: scanResults.isEmpty ? Colors.orange : Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to scan Gmail inbox: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Widget _buildMonobankCard(BankIntegrationState bankState) {
+    final walletCurrency = widget.account.currency.toUpperCase();
+    final isCurrencyMismatch = walletCurrency != 'UAH';
+
+    BankIntegrationModel? accountIntegration;
+    try {
+      accountIntegration = bankState.integrations.firstWhere(
+        (integration) => integration.accountId == widget.account.id,
+      );
+    } catch (_) {
+      accountIntegration = null;
+    }
+
+    if (bankState.isLoading) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (accountIntegration == null) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Monobank Sync',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Connect this wallet to Monobank to sync transactions automatically.',
+              ),
+              if (isCurrencyMismatch) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: Text(
+                    'Warning: this wallet is in ${widget.account.currency}. '
+                    'A UAH Monobank card should be connected to a UAH wallet.',
+                    style: const TextStyle(color: Colors.orange),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _showMonobankSetupDialog,
+                child: const Text('Connect Monobank'),
+              ),
+              if (bankState.error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  bankState.error!,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Monobank Sync',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connected bank account: ${accountIntegration.bankAccountId ?? 'Default account'}',
+            ),
+            if (accountIntegration.lastSyncedAt != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Last synced: ${_formatDateTime(accountIntegration.lastSyncedAt!)}',
+              ),
+            ],
+            if (isCurrencyMismatch) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Text(
+                  'Warning: this wallet is in ${widget.account.currency}. '
+                  'A UAH Monobank card should be connected to a UAH wallet.',
+                  style: const TextStyle(color: Colors.orange),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: bankState.isSyncing
+                  ? null
+                  : () => _syncMonobankNow(accountIntegration!.id),
+              icon: const Icon(Icons.sync),
+              label: Text(bankState.isSyncing ? 'Syncing...' : 'Sync Now'),
+            ),
+            if (bankState.message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                bankState.message!,
+                style: TextStyle(
+                  color: bankState.message!.contains('No new transactions')
+                      ? Colors.orange
+                      : Colors.green,
+                ),
+              ),
+            ],
+            if (bankState.error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                bankState.error!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showEditAccountDialog() {
     final nameController = TextEditingController(text: widget.account.name);
     final currencyController = TextEditingController(
       text: widget.account.currency,
     );
 
+    String selectedCurrency = widget.account.currency;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Wallet'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: currencyController,
-              decoration: const InputDecoration(
-                hintText: 'Currency (USD, EUR, etc.)',
-              ),
-            ),
-          ],
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(hintText: 'Name'),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final currency = await _showCurrencySelectionDialog(
+                      context,
+                      selectedCurrency,
+                    );
+                    if (currency != null) {
+                      setState(() {
+                        selectedCurrency = currency;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Currency',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$selectedCurrency · ${CurrencyUtils.displayName(selectedCurrency)}',
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -746,7 +1355,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   .updateAccount(
                     accountId: widget.account.id,
                     name: nameController.text,
-                    currency: currencyController.text,
+                    currency: selectedCurrency,
                   );
 
               navigator.pop();
@@ -772,6 +1381,60 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<String?> _showCurrencySelectionDialog(
+    BuildContext context,
+    String selectedCurrency,
+  ) async {
+    final queryController = TextEditingController();
+    var filteredCurrencies = CurrencyUtils.supportedCurrencies;
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Select Currency'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: queryController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search currency',
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        filteredCurrencies = CurrencyUtils.filter(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.maxFinite,
+                    height: 260,
+                    child: ListView.builder(
+                      itemCount: filteredCurrencies.length,
+                      itemBuilder: (context, index) {
+                        final code = filteredCurrencies[index];
+                        return ListTile(
+                          title: Text(
+                            '$code · ${CurrencyUtils.displayName(code)}',
+                          ),
+                          onTap: () => Navigator.of(context).pop(code),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -824,6 +1487,20 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
   }
 }
 
+abstract class _TransactionListItem {}
+
+class _TransactionSectionHeader extends _TransactionListItem {
+  final String title;
+
+  _TransactionSectionHeader(this.title);
+}
+
+class _TransactionSectionTransaction extends _TransactionListItem {
+  final TransactionModel transaction;
+
+  _TransactionSectionTransaction(this.transaction);
+}
+
 class DonutChartPainter extends CustomPainter {
   final List<CategorySpendingModel> spendings;
   final List<Color> colors;
@@ -849,7 +1526,7 @@ class DonutChartPainter extends CustomPainter {
       return;
     }
 
-    double startAngle = -3.1415926535 / 2; // Start from top
+    double startAngle = -3.1415926535 / 2;
     final rect = Rect.fromCircle(
       center: Offset(size.width / 2, size.height / 2),
       radius: size.width / 2 - 10,

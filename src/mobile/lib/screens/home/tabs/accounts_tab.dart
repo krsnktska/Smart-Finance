@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/accounts_provider.dart';
 import 'package:mobile/screens/account_detail_screen.dart';
+import 'package:mobile/utils/currency_utils.dart';
+import 'package:mobile/utils/currency_utils.dart';
 
 class AccountsTab extends ConsumerWidget {
   const AccountsTab({super.key});
@@ -125,35 +127,62 @@ class AccountsTab extends ConsumerWidget {
 
   void _showCreateAccountDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
-    final currencyController = TextEditingController(text: 'USD');
+    String selectedCurrency = 'USD';
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('New Wallet'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                hintText: 'Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: 'Name',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: currencyController,
-              decoration: InputDecoration(
-                hintText: 'Currency (USD, EUR, UAH...)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final currency = await _showCurrencySelectionDialog(
+                      context,
+                      selectedCurrency,
+                    );
+                    if (currency != null) {
+                      setState(() {
+                        selectedCurrency = currency;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Currency',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$selectedCurrency · ${CurrencyUtils.displayName(selectedCurrency)}',
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -166,7 +195,7 @@ class AccountsTab extends ConsumerWidget {
                   .read(accountsProvider.notifier)
                   .createAccount(
                     name: nameController.text,
-                    currency: currencyController.text,
+                    currency: selectedCurrency,
                   );
               if (!context.mounted) return;
               Navigator.pop(context);
@@ -238,6 +267,60 @@ class AccountsTab extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Future<String?> _showCurrencySelectionDialog(
+    BuildContext context,
+    String selectedCurrency,
+  ) async {
+    final queryController = TextEditingController();
+    var filteredCurrencies = CurrencyUtils.supportedCurrencies;
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Select Currency'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: queryController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search currency',
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        filteredCurrencies = CurrencyUtils.filter(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.maxFinite,
+                    height: 260,
+                    child: ListView.builder(
+                      itemCount: filteredCurrencies.length,
+                      itemBuilder: (context, index) {
+                        final code = filteredCurrencies[index];
+                        return ListTile(
+                          title: Text(
+                            '$code · ${CurrencyUtils.displayName(code)}',
+                          ),
+                          onTap: () => Navigator.of(context).pop(code),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

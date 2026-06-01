@@ -58,30 +58,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _initFromStorage() async {
     state = state.copyWith(isInitializing: true);
     try {
-      // Simulate load time for splash screen (2 seconds)
       await Future.delayed(const Duration(seconds: 2));
 
       final storedRefresh = await _storage.readRefreshToken();
-      print('🔐 [Auth] Stored refresh token found: ${storedRefresh != null}');
+      if (kDebugMode) {
+        print('🔐 [Auth] Stored refresh token found: ${storedRefresh != null}');
+      }
       if (storedRefresh == null) {
-        print('🔐 [Auth] No stored token, skipping auto-login');
+        if (kDebugMode) {
+          print('🔐 [Auth] No stored token, skipping auto-login');
+        }
         state = state.copyWith(isInitializing: false);
         return;
       }
-      print('🔐 [Auth] Attempting to refresh with stored token');
+      if (kDebugMode) {
+        print('🔐 [Auth] Attempting to refresh with stored token');
+      }
       final auth = await authRepository.refreshToken(
         refreshToken: storedRefresh,
       );
-      print('🔐 [Auth] Auto-login successful, token set');
+      if (kDebugMode) {
+        print('🔐 [Auth] Auto-login successful, token set');
+      }
       apiClient.setAuthToken(auth.token);
-      // Save the new refresh token for next session
-      print('🔐 [Auth] Saving new refresh token from refresh response');
+      if (kDebugMode) {
+        print('🔐 [Auth] Saving new refresh token from refresh response');
+      }
       final expiry = DateTime.now().add(const Duration(days: 30));
       await _storage.saveRefreshToken(auth.refreshToken, expiry);
-      print('🔐 [Auth] New refresh token saved successfully');
+      if (kDebugMode) {
+        print('🔐 [Auth] New refresh token saved successfully');
+      }
       state = state.copyWith(auth: auth, isInitializing: false);
     } catch (e) {
-      print('🔐 [Auth] Auto-login failed: $e');
+      if (kDebugMode) {
+        print('🔐 [Auth] Auto-login failed: $e');
+      }
       await _storage.clear();
       state = state.copyWith(isInitializing: false);
     }
@@ -94,24 +106,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      print('🔐 [Auth] Login attempt: $email (remember=$remember)');
+      if (kDebugMode) {
+        print('🔐 [Auth] Login attempt: $email (remember=$remember)');
+      }
       final auth = await authRepository.login(email: email, password: password);
       apiClient.setAuthToken(auth.token);
-      print('🔐 [Auth] Login successful, token set');
+      if (kDebugMode) {
+        print('🔐 [Auth] Login successful, token set');
+      }
       state = state.copyWith(auth: auth, isLoading: false);
 
       if (remember) {
-        print('🔐 [Auth] Saving refresh token (remember=true)');
+        if (kDebugMode) {
+          print('🔐 [Auth] Saving refresh token (remember=true)');
+        }
         final expiry = DateTime.now().add(const Duration(days: 30));
         await _storage.saveRefreshToken(auth.refreshToken, expiry);
-        print('🔐 [Auth] Refresh token saved successfully');
+        if (kDebugMode) {
+          print('🔐 [Auth] Refresh token saved successfully');
+        }
       } else {
-        print('🔐 [Auth] Clearing storage (remember=false)');
+        if (kDebugMode) {
+          print('🔐 [Auth] Clearing storage (remember=false)');
+        }
         await _storage.clear();
       }
       return true;
     } catch (e) {
-      print('❌ [Auth] Login error: $e');
+      if (kDebugMode) {
+        print('❌ [Auth] Login error: $e');
+      }
       final errorMessage = e.toString();
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
@@ -127,7 +151,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      print('🔐 [Auth] Register attempt: $email (remember=$remember)');
+      if (kDebugMode) {
+        print('🔐 [Auth] Register attempt: $email (remember=$remember)');
+      }
       final auth = await authRepository.register(
         name: name,
         email: email,
@@ -136,22 +162,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       apiClient.setAuthToken(auth.token);
-      print('🔐 [Auth] Registration successful, token set');
+      if (kDebugMode) {
+        print('🔐 [Auth] Registration successful, token set');
+      }
       state = state.copyWith(auth: auth, isLoading: false);
       if (remember) {
-        print(
-          '🔐 [Auth] Saving refresh token after registration (remember=true)',
-        );
+        if (kDebugMode) {
+          print(
+            '🔐 [Auth] Saving refresh token after registration (remember=true)',
+          );
+        }
         final expiry = DateTime.now().add(const Duration(days: 30));
         await _storage.saveRefreshToken(auth.refreshToken, expiry);
-        print('🔐 [Auth] Refresh token saved successfully');
+        if (kDebugMode) {
+          print('🔐 [Auth] Refresh token saved successfully');
+        }
       } else {
-        print('🔐 [Auth] Clearing storage after registration (remember=false)');
+        if (kDebugMode) {
+          print(
+            '🔐 [Auth] Clearing storage after registration (remember=false)',
+          );
+        }
         await _storage.clear();
       }
       return true;
     } catch (e) {
-      print('❌ [Auth] Registration error: $e');
+      if (kDebugMode) {
+        print('❌ [Auth] Registration error: $e');
+      }
       final errorMessage = e.toString();
       state = state.copyWith(isLoading: false, error: errorMessage);
       return false;
@@ -170,29 +208,41 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } finally {
       apiClient.removeAuthToken();
       await _storage.clear();
-      print('🔐 [Auth] Logout complete, clearing state');
+      if (kDebugMode) {
+        print('🔐 [Auth] Logout complete, clearing state');
+      }
       state = AuthState(isInitializing: false);
     }
   }
 
   Future<bool> refreshAccessToken() async {
     try {
-      print('🔐 [Auth] Attempting to refresh access token');
+      if (kDebugMode) {
+        print('🔐 [Auth] Attempting to refresh access token');
+      }
       if (state.refreshToken == null) {
-        print('❌ [Auth] No refresh token available');
+        if (kDebugMode) {
+          print('❌ [Auth] No refresh token available');
+        }
         return false;
       }
 
-      print('🔐 [Auth] Refreshing with stored refresh token');
+      if (kDebugMode) {
+        print('🔐 [Auth] Refreshing with stored refresh token');
+      }
       final auth = await authRepository.refreshToken(
         refreshToken: state.refreshToken!,
       );
       apiClient.setAuthToken(auth.token);
-      print('🔐 [Auth] Access token refreshed successfully');
+      if (kDebugMode) {
+        print('🔐 [Auth] Access token refreshed successfully');
+      }
       state = state.copyWith(auth: auth);
       return true;
     } catch (e) {
-      print('❌ [Auth] Token refresh failed: $e');
+      if (kDebugMode) {
+        print('❌ [Auth] Token refresh failed: $e');
+      }
       await logout();
       return false;
     }

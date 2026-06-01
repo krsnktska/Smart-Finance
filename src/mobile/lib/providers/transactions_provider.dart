@@ -61,7 +61,10 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
       final transactions = await transactionRepository.getAll(
         accountId: accountId,
       );
-      state = state.copyWith(transactions: transactions, isLoading: false);
+      state = state.copyWith(
+        transactions: _sortTransactions(transactions),
+        isLoading: false,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -91,7 +94,10 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
         categoryIds: categoryIds,
       );
       state = state.copyWith(
-        transactions: [...state.transactions, newTransaction],
+        transactions: _sortTransactions([
+          ...state.transactions,
+          newTransaction,
+        ]),
         isLoading: false,
       );
       return true;
@@ -126,13 +132,15 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
         categoryIds: categoryIds,
       );
       state = state.copyWith(
-        transactions: state.transactions
-            .map(
-              (transaction) => transaction.id == transactionId
-                  ? updatedTransaction
-                  : transaction,
-            )
-            .toList(),
+        transactions: _sortTransactions(
+          state.transactions
+              .map(
+                (transaction) => transaction.id == transactionId
+                    ? updatedTransaction
+                    : transaction,
+              )
+              .toList(),
+        ),
         isLoading: false,
       );
       return true;
@@ -142,14 +150,24 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
     }
   }
 
+  List<TransactionModel> _sortTransactions(
+    List<TransactionModel> transactions,
+  ) {
+    final sorted = [...transactions];
+    sorted.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return sorted;
+  }
+
   Future<bool> deleteTransaction(String transactionId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       await transactionRepository.delete(transactionId);
       state = state.copyWith(
-        transactions: state.transactions
-            .where((transaction) => transaction.id != transactionId)
-            .toList(),
+        transactions: _sortTransactions(
+          state.transactions
+              .where((transaction) => transaction.id != transactionId)
+              .toList(),
+        ),
         isLoading: false,
       );
       return true;

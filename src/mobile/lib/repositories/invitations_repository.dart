@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:mobile/config/api_config.dart';
 import 'package:mobile/models/group_invitation_model.dart';
 import 'package:mobile/services/api_client.dart';
@@ -9,20 +10,26 @@ class InvitationsRepository {
 
   Future<List<GroupInvitationModel>> getPendingInvitations() async {
     try {
-      print(
-        '📤 [Invitations] Fetching pending invitations from ${ApiConfig.invitations}',
-      );
+      if (kDebugMode) {
+        print(
+          '📤 [Invitations] Fetching pending invitations from ${ApiConfig.invitations}',
+        );
+      }
       final response = await apiClient.get<List<dynamic>>(
         ApiConfig.invitations,
       );
-      print('📥 [Invitations] Received ${response.length} invitations');
+      if (kDebugMode) {
+        print('📥 [Invitations] Received ${response.length} invitations');
+      }
       return response
           .map(
             (raw) => GroupInvitationModel.fromJson(raw as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
-      print('❌ [Invitations] Error fetching pending invitations: $e');
+      if (kDebugMode) {
+        print('❌ [Invitations] Error fetching pending invitations: $e');
+      }
       rethrow;
     }
   }
@@ -32,7 +39,9 @@ class InvitationsRepository {
       await apiClient.post('${ApiConfig.invitations}/$invitationId/accept');
       return true;
     } catch (e) {
-      print('❌ Error in Repository [acceptInvitation]: $e');
+      if (kDebugMode) {
+        print('❌ Error in Repository [acceptInvitation]: $e');
+      }
       return false;
     }
   }
@@ -42,7 +51,9 @@ class InvitationsRepository {
       await apiClient.post('${ApiConfig.invitations}/$invitationId/decline');
       return true;
     } catch (e) {
-      print('❌ Error in Repository [declineInvitation]: $e');
+      if (kDebugMode) {
+        print('❌ Error in Repository [declineInvitation]: $e');
+      }
       return false;
     }
   }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/groups_provider.dart';
-import 'package:mobile/providers/auth_provider.dart'; // Подключаем твой authProvider
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/models/group_model.dart';
 import 'package:mobile/screens/group_detail_screen.dart';
 
@@ -12,8 +12,6 @@ class GroupsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsState = ref.watch(groupsProvider);
 
-    // 1. Получаем ID текущего авторизованного пользователя
-    // Если в AuthModel поле называется userId, замени .auth?.id на .auth?.userId
     final currentUserId = ref.watch(authProvider).auth?.user.id;
 
     return RefreshIndicator(
@@ -75,7 +73,6 @@ class GroupsTab extends ConsumerWidget {
             )
           else
             ...groupsState.groups.map((group) {
-              // 2. Проверяем, является ли текущий пользователь создателем этой конкретной группы
               final bool isOwner = group.members.any(
                 (m) => m.userId == currentUserId && m.isOwner == true,
               );
@@ -87,7 +84,6 @@ class GroupsTab extends ConsumerWidget {
                   title: Text(group.name),
                   subtitle: Text('${group.members.length} members'),
                   trailing: PopupMenuButton<String>(
-                    // 3. Динамически переключаем пункты выпадающего меню
                     itemBuilder: (context) => isOwner
                         ? [
                             const PopupMenuItem(
