@@ -140,9 +140,11 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
     private List<ParsedReceiptItem> ExtractItems(List<string> lines, decimal receiptTotal)
     {
         var items = new List<ParsedReceiptItem>();
-        var skipKeywords = new[] { "СУМА", "РАЗОМ", "TOTAL", "ПДВ", "VAT", "ЗНИЖКА", "CASHBACK", "БОНУС", "ФОП", "ТОВ", "ЧЕК", "ФІСКАЛЬНИЙ" };
+        // "буд." filters Ukrainian address lines (e.g. "шосе, буд. 248") where the house number looks like a price
+        var skipKeywords = new[] { "СУМА", "РАЗОМ", "TOTAL", "ПДВ", "VAT", "ЗНИЖКА", "CASHBACK", "БОНУС", "ФОП", "ТОВ", "ЧЕК", "ФІСКАЛЬНИЙ", "буд." };
 
         var inItemBlock = false;
+        var hasSeenMultiplier = false;
         var pendingQuantity = 1.0m;
         var pendingUnitPrice = 0.0m;
         var pendingNameLines = new List<string>();
@@ -160,6 +162,7 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
             if (multiplierMatch.Success)
             {
                 inItemBlock = true;
+                hasSeenMultiplier = true;
                 pendingQuantity = ParseDecimal(multiplierMatch.Groups[1].Value);
                 pendingUnitPrice = ParseDecimal(multiplierMatch.Groups[2].Value);
                 pendingNameLines.Clear();
@@ -197,6 +200,26 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
 
                 if (price > 0 && price < receiptTotal * 1.5m && name.Length > 2 && !name.All(char.IsDigit))
                 {
+                    // When inside a multiplier block and the matched price is far below the unit price,
+                    // this line is a continuation of a split product name (e.g. "200 мл" split as "20" + "0 мл")
+                    if (inItemBlock && pendingUnitPrice > 0 && price < pendingUnitPrice * pendingQuantity * 0.5m)
+                    {
+                        pendingNameLines.Add(line);
+                        if (pendingNameLines.Count > 8)
+                        {
+                            inItemBlock = false;
+                            pendingNameLines.Clear();
+                        }
+                        continue;
+                    }
+
+                    // After a multiplier-based receipt is detected, lines outside an item block are
+                    // header/footer noise (addresses, totals) — not products
+                    if (!inItemBlock && hasSeenMultiplier)
+                    {
+                        continue;
+                    }
+
                     var qty = inItemBlock ? pendingQuantity : 1.0m;
                     var unitPrice = inItemBlock ? pendingUnitPrice : price;
 
