@@ -8,15 +8,15 @@ namespace SmartFinance.Services;
 public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) : IReceiptParserService
 {
     // Matches item lines like:  Молоко 2.5% 1л   1  45.99  45.99
-    [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*([а-яА-Яa-zA-Z]*)\s*[xX*]\s*([\d,\.]+)\s+([\d,\.]+)\s*$")]
+    [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*([а-яА-Яa-zA-Z]*)\s*[xX*]\s*([\d,\.]+)\s+([\d,\.]+)\s*[a-zA-Zа-яА-Я]?\s*$")]
     private static partial Regex ItemLineWithQuantityRegex();
 
     // Matches simpler lines like:  Хліб пшеничний    28.50
-    [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*$")]
+    [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*[a-zA-Zа-яА-Я]?\s*$")]
     private static partial Regex SimpleItemLineRegex();
 
     // Matches total line
-    [GeneratedRegex(@"(?:СУМА|РАЗОМ|TOTAL|ПІДСУМОК|ДО\s*СПЛАТИ)\s*:?\s*([\d\s,\.]+)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:СУМА|РАЗОМ|TOTAL|ПІДСУМОК|ДО\s*СПЛАТИ|CYMA|CUMA)\s*:?\s*([\d\s,\.]+)", RegexOptions.IgnoreCase)]
     private static partial Regex TotalRegex();
 
     // Matches date patterns: 25.12.2024 or 25/12/2024 or 2024-12-25
@@ -28,7 +28,7 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
     private static partial Regex TimeRegex();
 
     // Known Ukrainian store names
-    private static readonly string[] KnownStores = ["Сільпо", "АТБ", "Рост", "Новус", "METRO", "Ашан", "Billa", "Фора", "ЕКО", "Varus"];
+    private static readonly string[] KnownStores = ["Сільпо", "АТБ", "Рост", "Новус", "METRO", "Ашан", "Billa", "Фора", "ЕКО", "Varus", "Ева", "Eva"];
 
     public ParsedReceipt Parse(string ocrText)
     {
