@@ -56,11 +56,30 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
             }
         }
 
-        var lines = ocrText
+        var rawLines = ocrText
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim())
             .Where(l => l.Length > 0)
             .ToList();
+
+        // Remove consecutive duplicate lines to prevent layout-based OCR duplication bugs (with whitespace normalization)
+        var lines = new List<string>();
+        foreach (var line in rawLines)
+        {
+            if (lines.Count == 0)
+            {
+                lines.Add(line);
+                continue;
+            }
+
+            var prevNormalized = Regex.Replace(lines[^1], @"\s+", " ").Trim();
+            var currNormalized = Regex.Replace(line, @"\s+", " ").Trim();
+
+            if (prevNormalized != currNormalized)
+            {
+                lines.Add(line);
+            }
+        }
 
         var storeName = ExtractStoreName(lines);
         var occurredAt = ExtractDateTime(ocrText);
