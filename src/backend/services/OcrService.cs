@@ -12,7 +12,7 @@ public class OcrService(IConfiguration configuration, IHttpClientFactory httpCli
 {
     private readonly string _apiKey = configuration["Ocr:ApiKey"] ?? "helloworld";
     private readonly string _apiUrl = configuration["Ocr:ApiUrl"] ?? "https://api.ocr.space/parse/image";
-    private readonly string _language = configuration["Ocr:Language"] ?? "ukr";
+    private readonly string _language = configuration["Ocr:Language"] ?? "auto";
 
     public async Task<string> ExtractTextAsync(Stream imageStream)
     {
@@ -59,10 +59,12 @@ public class OcrService(IConfiguration configuration, IHttpClientFactory httpCli
 
             content.Add(new StringContent(_apiKey), "apikey");
             content.Add(new StringContent(_language), "language");
+            content.Add(new StringContent("2"), "OCREngine"); // Use OCR Engine 2 for superior layout & Ukrainian support
             content.Add(new StringContent("true"), "isTable");
+            content.Add(new StringContent("true"), "isOverlayRequired"); // Required to avoid empty text results in Engine 2
             content.Add(new StringContent("true"), "scale");
 
-            logger.LogInformation("Sending receipt image to OCR.space API (Language: {Lang})", _language);
+            logger.LogInformation("Sending receipt image to OCR.space API (Engine: 2, Language: {Lang})", _language);
             var httpResponse = await client.PostAsync(_apiUrl, content);
 
             if (!httpResponse.IsSuccessStatusCode)
