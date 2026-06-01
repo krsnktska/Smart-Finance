@@ -15,6 +15,10 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
     [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*[a-zA-Zа-яА-Я]?\s*$")]
     private static partial Regex SimpleItemLineRegex();
 
+    // Matches multiplier line (e.g. 1 x 67.50)
+    [GeneratedRegex(@"^\s*([\d,\.]+)\s*[xX*]\s*([\d,\.]+)\s*$")]
+    private static partial Regex MultiplierLineRegex();
+
     // Matches total line
     [GeneratedRegex(@"(?:СУМА|РАЗОМ|TOTAL|ПІДСУМОК|ДО\s*СПЛАТИ|CYMA|CUMA)\s*:?\s*([\d\s,\.]+)", RegexOptions.IgnoreCase)]
     private static partial Regex TotalRegex();
@@ -99,9 +103,29 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
         var items = new List<ParsedReceiptItem>();
         var skipKeywords = new[] { "СУМА", "РАЗОМ", "TOTAL", "ПДВ", "VAT", "ЗНИЖКА", "CASHBACK", "БОНУС", "ФОП", "ТОВ", "ЧЕК", "ФІСКАЛЬНИЙ" };
 
+        var inItemBlock = false;
+        var pendingQuantity = 1.0m;
+        var pendingUnitPrice = 0.0m;
+        var pendingNameLines = new List<string>();
+
         foreach (var line in lines)
         {
-            if (skipKeywords.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase))) continue;
+            if (skipKeywords.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase)))
+            {
+                inItemBlock = false;
+                pendingNameLines.Clear();
+                continue;
+            }
+
+            var multiplierMatch = MultiplierLineRegex().Match(line);
+            if (multiplierMatch.Success)
+            {
+                inItemBlock = true;
+                pendingQuantity = ParseDecimal(multiplierMatch.Groups[1].Value);
+                pendingUnitPrice = ParseDecimal(multiplierMatch.Groups[2].Value);
+                pendingNameLines.Clear();
+                continue;
+            }
 
             var withQty = ItemLineWithQuantityRegex().Match(line);
             if (withQty.Success)
@@ -113,8 +137,16 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
                 var total = ParseDecimal(withQty.Groups[5].Value);
 
                 if (total > 0 && name.Length > 1)
+                {
+                    if (inItemBlock && pendingNameLines.Count > 0)
+                    {
+                        name = string.Join(" ", pendingNameLines.Concat(new[] { name }));
+                    }
                     items.Add(new ParsedReceiptItem(name, qty, string.IsNullOrEmpty(unit) ? null : unit, unitPrice, total));
+                }
 
+                inItemBlock = false;
+                pendingNameLines.Clear();
                 continue;
             }
 
@@ -125,7 +157,31 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
                 var price = ParseDecimal(simple.Groups[2].Value);
 
                 if (price > 0 && price < receiptTotal * 1.5m && name.Length > 2 && !name.All(char.IsDigit))
-                    items.Add(new ParsedReceiptItem(name, 1, null, price, price));
+                {
+                    var qty = inItemBlock ? pendingQuantity : 1.0m;
+                    var unitPrice = inItemBlock ? pendingUnitPrice : price;
+
+                    if (inItemBlock && pendingNameLines.Count > 0)
+                    {
+                        name = string.Join(" ", pendingNameLines.Concat(new[] { name }));
+                    }
+
+                    items.Add(new ParsedReceiptItem(name, qty, null, unitPrice, price));
+                }
+
+                inItemBlock = false;
+                pendingNameLines.Clear();
+                continue;
+            }
+
+            if (inItemBlock)
+            {
+                pendingNameLines.Add(line);
+                if (pendingNameLines.Count > 4)
+                {
+                    inItemBlock = false;
+                    pendingNameLines.Clear();
+                }
             }
         }
 
