@@ -86,6 +86,24 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
         };
     }
 
+    /// <summary>
+    /// Disconnects and removes a Monobank integration.
+    /// </summary>
+    /// <param name="id">Integration ID.</param>
+    [HttpDelete("monobank/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteMonobankIntegration([FromRoute] Guid id)
+    {
+        var result = await monobankService.DeleteIntegrationAsync(id, GetCurrentUserId());
+        return result.Status switch
+        {
+            ServiceStatus.Ok => NoContent(),
+            ServiceStatus.NotFound => NotFound(),
+            _ => BadRequest()
+        };
+    }
+
     private Guid GetCurrentUserId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

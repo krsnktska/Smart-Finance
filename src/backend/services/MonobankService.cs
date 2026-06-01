@@ -143,6 +143,20 @@ public class MonobankService(
         return ServiceResult<List<BankIntegrationResponse>>.Ok(integrations.Select(MapIntegration).ToList());
     }
 
+    public async Task<ServiceResult> DeleteIntegrationAsync(Guid id, Guid userId)
+    {
+        var integration = await context.BankIntegrations
+            .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId && b.BankType == BankType.Monobank);
+
+        if (integration is null)
+            return ServiceResult.NotFound();
+
+        context.BankIntegrations.Remove(integration);
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
     public async Task<ServiceResult<List<MonobankAccountResponse>>> GetAccountsAsync(string apiToken)
     {
         var client = CreateClient(apiToken);
