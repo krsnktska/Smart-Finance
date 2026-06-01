@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
 using SmartFinance.Models;
@@ -18,6 +20,9 @@ public class ReceiptScraperService(IHttpClientFactory httpClientFactory, ILogger
             var config = Configuration.Default;
             var context = BrowsingContext.New(config);
             var document = await context.OpenAsync(req => req.Content(html));
+
+            if (url.Contains("check.eva.ua"))
+                return ParseEvaReceipt(html, url);
 
             if (url.Contains("checkbox.ua") || url.Contains("vchasno.ua"))
                 return ParseCheckboxReceipt(document, url);
@@ -141,6 +146,128 @@ public class ReceiptScraperService(IHttpClientFactory httpClientFactory, ILogger
 
         var total = items.Sum(i => i.TotalPrice);
         return new ParsedReceipt(title, occurredAt, total, "UAH", items);
+    }
+
+    private static ParsedReceipt ParseEvaReceipt(string rawHtml, string url)
+    {
+        // The page renders receipt data via JS. The actual content is in a
+        // dataArray variable embedded in the script, not in rendered HTML.
+        var arrayMatch = Regex.Match(rawHtml, @"const dataArray = (\[\[.*?\]\]);", RegexOptions.Singleline);
+        if (!arrayMatch.Success)
+            return new ParsedReceipt("Магазин EVA", DateTimeOffset.UtcNow, 0, "UAH", []);
+
+        List<List<string>>? dataArray;
+        try { dataArray = JsonSerializer.Deserialize<List<List<string>>>(arrayMatch.Groups[1].Value); }
+        catch { return new ParsedReceipt("Магазин EVA", DateTimeOffset.UtcNow, 0, "UAH", []); }
+
+        if (dataArray is null || dataArray.Count == 0 || dataArray[0].Count == 0)
+            return new ParsedReceipt("Магазин EVA", DateTimeOffset.UtcNow, 0, "UAH", []);
+
+        var lines = dataArray[0]
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0 && !l.All(c => c == '-'))
+            .ToList();
+
+        // Extract date: "24-09-2025              14:45:49"
+        var occurredAt = DateTimeOffset.UtcNow;
+        var dtRegex = new Regex(@"(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2}:\d{2})");
+        foreach (var line in lines)
+        {
+            var dm = dtRegex.Match(line);
+            if (!dm.Success) continue;
+            if (DateTimeOffset.TryParseExact(
+                    $"{dm.Groups[1].Value} {dm.Groups[2].Value}",
+                    "dd-MM-yyyy HH:mm:ss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal,
+                    out var parsed))
+                occurredAt = parsed;
+            break;
+        }
+
+        // Item parsing:
+        // "N  x  PRICE"  → starts an item block
+        // following lines → name parts
+        // "NAME_END   PRICE А" (2+ spaces before price, VAT letter at end) → closes block
+        var mulRegex = new Regex(@"^\s*([\d,\.]+)\s*[xX]\s*([\d,\.]+)\s*$");
+        // The final item line: optional name text, 2+ spaces, price, space, uppercase cyrillic/latin letter
+        var totalLineRegex = new Regex(@"^(.*?)\s{2,}(\d[\d,\.]*)\s+[А-ЯҐЄІЇA-Z]\s*$");
+
+        var items = new List<ParsedReceiptItem>();
+        decimal pendingQty = 1;
+        decimal pendingUnitPrice = 0;
+        var pendingNameParts = new List<string>();
+        var inItem = false;
+
+        var skipPrefixes = new[] { "ШК:", "#", "Касир", "Сума", "СУМА", "РАЗОМ", "ЧЕК", "ФІСКАЛЬНИЙ",
+            "БЕЗГОТІВКОВА", "ГАМАНЕЦЬ", "ПДВ", "ТЕРМІНАЛ", "КОМІСІЯ", "ВИД ", "ЕПЗ", "КОД АВТ",
+            "RRN", "ІНШЕ", "ІДЕНТ", "ПЛАТІЖНА", "ДОБРОГО", "НА ВАШИХ", "EVAріанти", "ФН ПРРО",
+            "PosService", "ТОВ", "ПН " };
+        var skipExact = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "грн", "Онлайн", "Офлайн" };
+
+        foreach (var line in lines)
+        {
+            if (skipExact.Contains(line) ||
+                skipPrefixes.Any(p => line.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!line.StartsWith("#", StringComparison.Ordinal))
+                {
+                    inItem = false;
+                    pendingNameParts.Clear();
+                }
+                continue;
+            }
+
+            var mulMatch = mulRegex.Match(line);
+            if (mulMatch.Success)
+            {
+                inItem = true;
+                pendingQty = ParseAmount(mulMatch.Groups[1].Value);
+                pendingUnitPrice = ParseAmount(mulMatch.Groups[2].Value);
+                pendingNameParts.Clear();
+                continue;
+            }
+
+            if (!inItem) continue;
+
+            var totalMatch = totalLineRegex.Match(line);
+            if (totalMatch.Success)
+            {
+                var lastPart = totalMatch.Groups[1].Value.Trim();
+                var total = ParseAmount(totalMatch.Groups[2].Value);
+
+                if (total > 0)
+                {
+                    pendingNameParts.Add(lastPart);
+                    var fullName = Regex.Replace(
+                        string.Join(" ", pendingNameParts.Where(p => !string.IsNullOrWhiteSpace(p))),
+                        @"\s+", " ").Trim();
+                    var qty = pendingQty > 0 ? pendingQty : 1;
+                    var unitPrice = pendingUnitPrice > 0 ? pendingUnitPrice : total / qty;
+                    items.Add(new ParsedReceiptItem(fullName, qty, null, unitPrice, total));
+                }
+
+                inItem = false;
+                pendingNameParts.Clear();
+                continue;
+            }
+
+            pendingNameParts.Add(line);
+        }
+
+        // Extract receipt total from "СУМА   486.63 ГРН"
+        var totalRx = new Regex(@"СУМА\s+([\d,\.]+)\s+ГРН", RegexOptions.IgnoreCase);
+        decimal receiptTotal = 0;
+        foreach (var line in lines)
+        {
+            var tm = totalRx.Match(line);
+            if (!tm.Success) continue;
+            receiptTotal = ParseAmount(tm.Groups[1].Value);
+            break;
+        }
+        if (receiptTotal <= 0) receiptTotal = items.Sum(i => i.TotalPrice);
+
+        return new ParsedReceipt("Магазин EVA", occurredAt, receiptTotal, "UAH", items);
     }
 
     private static DateTimeOffset ParseDate(string? text)
