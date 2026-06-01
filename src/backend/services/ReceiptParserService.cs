@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using SmartFinance.Models;
 using SmartFinance.Services.Interfaces;
 
@@ -36,6 +37,25 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
 
     public ParsedReceipt Parse(string ocrText)
     {
+        var trimmed = ocrText.Trim();
+        if (trimmed.StartsWith("{") && trimmed.EndsWith("}"))
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var parsed = JsonSerializer.Deserialize<ParsedReceipt>(trimmed, options);
+                if (parsed is not null && parsed.Items is not null)
+                {
+                    logger.LogInformation("Successfully parsed receipt directly from Claude JSON!");
+                    return parsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to parse Claude JSON, falling back to regex parser");
+            }
+        }
+
         var lines = ocrText
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(l => l.Trim())
