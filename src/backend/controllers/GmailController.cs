@@ -37,16 +37,91 @@ public class GmailController(IGmailIntegrationService gmailService) : Controller
     [AllowAnonymous]
     public async Task<IActionResult> OAuthCallback([FromQuery] string code, [FromQuery] Guid accountId, [FromQuery] string state)
     {
-        if (!Guid.TryParse(state, out var userId))
-            return Redirect("smartfinance://gmail-callback?success=false&error=InvalidState");
+        string redirectUrl;
 
-        var result = await gmailService.HandleCallbackAsync(code, userId, accountId);
-        if (result.Status == ServiceStatus.Ok && result.Data != null)
+        if (!Guid.TryParse(state, out var userId))
         {
-            return Redirect("smartfinance://gmail-callback?success=true");
+            redirectUrl = "smartfinance://gmail-callback?success=false&error=InvalidState";
+        }
+        else
+        {
+            var result = await gmailService.HandleCallbackAsync(code, userId, accountId);
+            if (result.Status == ServiceStatus.Ok && result.Data != null)
+            {
+                redirectUrl = "smartfinance://gmail-callback?success=true";
+            }
+            else
+            {
+                redirectUrl = "smartfinance://gmail-callback?success=false&error=AuthFailed";
+            }
         }
 
-        return Redirect("smartfinance://gmail-callback?success=false&error=AuthFailed");
+        return Content(GetRedirectHtml(redirectUrl), "text/html", System.Text.Encoding.UTF8);
+    }
+
+    private static string GetRedirectHtml(string url)
+    {
+        return $$"""
+        <!DOCTYPE html>
+        <html lang="uk">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>SmartFinance</title>
+            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    background-color: #0f172a;
+                    color: #f8fafc;
+                    font-family: 'Outfit', sans-serif;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    padding: 20px;
+                    box-sizing: border-box;
+                }
+                .container {
+                    text-align: center;
+                }
+                .spinner {
+                    width: 50px;
+                    height: 50px;
+                    border: 4px solid rgba(255, 255, 255, 0.1);
+                    border-top: 4px solid #10b981;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                p {
+                    color: #94a3b8;
+                    font-size: 16px;
+                    font-weight: 600;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="spinner"></div>
+                <p>Повернення до SmartFinance...</p>
+            </div>
+            <script>
+                function doRedirect() {
+                    window.location.replace("{{url}}");
+                    setTimeout(function() {
+                        window.location.href = "{{url}}";
+                    }, 250);
+                }
+                window.onload = doRedirect;
+            </script>
+        </body>
+        </html>
+        """;
     }
 
     /// <summary>
