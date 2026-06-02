@@ -7,6 +7,19 @@ class UserRepository {
 
   UserRepository({required this.apiClient});
 
+  Future<UserModel?> searchByEmail(String email) async {
+    try {
+      final response = await apiClient.get(
+        '${ApiConfig.users}/search',
+        queryParameters: {'email': email},
+        fromJson: (json) => UserModel.fromJson(json as Map<String, dynamic>),
+      );
+      return response;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<UserModel> getMe() async {
     final response = await apiClient.get(
       '${ApiConfig.users}/me',

@@ -24,6 +24,7 @@ class ApiConfig {
   static const String monobankSetup = '/bank/monobank/setup';
   static const String monobankSync = '/bank/monobank/sync';
   static const String monobankAccounts = '/bank/monobank/accounts';
+  static String monobankIntegration(String id) => '/bank/monobank/$id';
 
   static const String gmailAuth = '/gmail/auth';
   static const String gmailStatus = '/gmail/status';

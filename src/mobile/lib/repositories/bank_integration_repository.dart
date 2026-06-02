@@ -57,6 +57,12 @@ class BankIntegrationRepository {
     return response;
   }
 
+  Future<void> deleteIntegration(String integrationId) async {
+    await apiClient.delete<void>(
+      ApiConfig.monobankIntegration(integrationId),
+    );
+  }
+
   Future<List<TransactionModel>> syncMonobank({
     required String integrationId,
     required DateTime from,

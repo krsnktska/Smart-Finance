@@ -10,8 +10,8 @@ class GroupsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final groupsState = ref.watch(groupsProvider);
-
     final currentUserId = ref.watch(authProvider).auth?.user.id;
 
     return RefreshIndicator(
@@ -38,7 +38,7 @@ class GroupsTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  Icon(Icons.error_outline, size: 48, color: cs.error),
                   const SizedBox(height: 16),
                   Text('Error: ${groupsState.error}'),
                   const SizedBox(height: 16),
@@ -55,10 +55,10 @@ class GroupsTab extends ConsumerWidget {
             Center(
               child: Column(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.groups_outlined,
                     size: 48,
-                    color: Colors.grey,
+                    color: cs.onSurface.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   const Text('No groups yet'),
@@ -90,28 +90,36 @@ class GroupsTab extends ConsumerWidget {
                               value: 'edit',
                               child: Text('Rename'),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'delete',
                               child: Text(
                                 'Delete',
-                                style: TextStyle(color: Colors.red),
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                               ),
                             ),
                           ]
                         : [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'leave',
                               child: Row(
                                 children: [
                                   Icon(
                                     Icons.exit_to_app,
                                     size: 20,
-                                    color: Colors.orange,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.tertiary,
                                   ),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(
                                     'Leave Group',
-                                    style: TextStyle(color: Colors.orange),
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.tertiary,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -176,8 +184,8 @@ class GroupsTab extends ConsumerWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              foregroundColor: Theme.of(context).colorScheme.onTertiary,
             ),
             onPressed: () async {
               final success = await ref
@@ -186,12 +194,12 @@ class GroupsTab extends ConsumerWidget {
 
               if (!context.mounted) return;
               Navigator.pop(context);
-
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('You left the group'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('You left the group'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
@@ -199,7 +207,7 @@ class GroupsTab extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(error ?? 'Could not leave group'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: cs.error,
                   ),
                 );
               }
@@ -236,11 +244,12 @@ class GroupsTab extends ConsumerWidget {
                   .createGroup(name: name);
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Group created'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Group created'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
@@ -248,7 +257,7 @@ class GroupsTab extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(error ?? 'Could not create group'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: cs.error,
                   ),
                 );
               }
@@ -289,11 +298,12 @@ class GroupsTab extends ConsumerWidget {
                   .updateGroup(groupId: group.id, name: name);
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Group renamed'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Group renamed'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
@@ -301,7 +311,7 @@ class GroupsTab extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(error ?? 'Could not rename group'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: cs.error,
                   ),
                 );
               }
@@ -330,18 +340,22 @@ class GroupsTab extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () async {
               final success = await ref
                   .read(groupsProvider.notifier)
                   .deleteGroup(groupId);
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Group deleted'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Group deleted'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
@@ -349,7 +363,7 @@ class GroupsTab extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(error ?? 'Could not delete group'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: cs.error,
                   ),
                 );
               }

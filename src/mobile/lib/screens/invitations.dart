@@ -7,6 +7,7 @@ class InvitationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final invitationsState = ref.watch(invitationsProvider);
 
     return Scaffold(
@@ -16,7 +17,7 @@ class InvitationsScreen extends ConsumerWidget {
         error: (error, _) => Center(
           child: Text(
             'Failed to load invitations: $error',
-            style: const TextStyle(color: Colors.red),
+            style: TextStyle(color: cs.error),
           ),
         ),
         data: (invitations) {
@@ -28,12 +29,15 @@ class InvitationsScreen extends ConsumerWidget {
                   Icon(
                     Icons.mail_lock_outlined,
                     size: 64,
-                    color: Colors.grey[400],
+                    color: cs.onSurface.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No pending invitations',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
                   ),
                 ],
               ),
@@ -62,14 +66,10 @@ class InvitationsScreen extends ConsumerWidget {
                         Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer,
+                              backgroundColor: cs.primaryContainer,
                               child: Icon(
                                 Icons.group,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimaryContainer,
+                                color: cs.onPrimaryContainer,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -89,7 +89,9 @@ class InvitationsScreen extends ConsumerWidget {
                                     'Invited by ${invite.invitedByUserName}',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: Colors.grey[600],
+                                      color: cs.onSurface.withValues(
+                                        alpha: 0.6,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -113,12 +115,8 @@ class InvitationsScreen extends ConsumerWidget {
                               icon: const Icon(Icons.close, size: 18),
                               label: const Text('Decline'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.error,
-                                side: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
+                                foregroundColor: cs.error,
+                                side: BorderSide(color: cs.error),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -129,12 +127,14 @@ class InvitationsScreen extends ConsumerWidget {
                                     .acceptInvite(invite.id);
                                 if (context.mounted) {
                                   if (success) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
                                           'Successfully joined the group!',
                                         ),
-                                        backgroundColor: Colors.green,
+                                        backgroundColor: cs.primary,
                                       ),
                                     );
                                   } else {
@@ -145,12 +145,8 @@ class InvitationsScreen extends ConsumerWidget {
                               icon: const Icon(Icons.check, size: 18),
                               label: const Text('Accept'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimary,
+                                backgroundColor: cs.primary,
+                                foregroundColor: cs.onPrimary,
                               ),
                             ),
                           ],
@@ -169,9 +165,9 @@ class InvitationsScreen extends ConsumerWidget {
 
   void _showErrorSnackBar(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Something went wrong. Please try again.'),
-        backgroundColor: Colors.red,
+      SnackBar(
+        content: const Text('Something went wrong. Please try again.'),
+        backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
   }

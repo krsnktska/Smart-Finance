@@ -151,6 +151,26 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     }
   }
 
+  Future<bool> updateMemberRole({
+    required String groupId,
+    required String userId,
+    required bool isOwner,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await groupRepository.updateMemberRole(
+        groupId: groupId,
+        userId: userId,
+        isOwner: isOwner,
+      );
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
   Future<bool> removeMember({
     required String groupId,
     required String userId,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mobile/models/receipt_item_model.dart';
 import 'package:mobile/models/receipt_scan_model.dart';
 import 'package:mobile/models/transaction_model.dart';
 import 'package:mobile/providers/categories_provider.dart';
@@ -44,6 +45,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   bool _isSaving = false;
   bool _isScanningReceipt = false;
   String? _scannedTransactionId;
+  final Set<String> _aiSuggestedCategoryIds = {};
+  final List<ReceiptItemModel> _scannedItems = [];
 
   @override
   void initState() {
@@ -115,10 +118,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   Future<void> _saveTransaction() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isSaving = true;
-    });
+    setState(() => _isSaving = true);
 
+    final cs = Theme.of(context).colorScheme;
     final notifier = ref.read(transactionsProvider(widget.accountId).notifier);
 
     final value = double.tryParse(_valueController.text) ?? 0.0;
@@ -167,31 +169,30 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ? 'Transaction updated'
                 : 'Transaction added',
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: cs.primary,
         ),
       );
-      Navigator.pop(context, true);
+      Navigator.pop(context, _scannedTransactionId != null);
     } else {
       final error = ref.read(transactionsProvider(widget.accountId)).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error ?? 'Failed to save transaction'),
-          backgroundColor: Colors.red,
+          backgroundColor: cs.error,
         ),
       );
     }
   }
 
   Future<void> _scanReceipt(ImageSource source) async {
+    final cs = Theme.of(context).colorScheme;
     final pickedImage = await ImagePicker().pickImage(
       source: source,
       imageQuality: 80,
     );
     if (pickedImage == null) return;
 
-    setState(() {
-      _isScanningReceipt = true;
-    });
+    setState(() => _isScanningReceipt = true);
 
     try {
       final scanResult = await ref
@@ -204,11 +205,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          SnackBar(
+            content: const Text(
               'Receipt scanned. Review the transaction before saving.',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: cs.primary,
           ),
         );
       }
@@ -217,16 +218,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Receipt scan failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: cs.error,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isScanningReceipt = false;
-        });
-      }
+      if (mounted) setState(() => _isScanningReceipt = false);
     }
   }
 
@@ -293,9 +290,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Future<void> _scanReceiptFromUrl(String url) async {
-    setState(() {
-      _isScanningReceipt = true;
-    });
+    final cs = Theme.of(context).colorScheme;
+    setState(() => _isScanningReceipt = true);
 
     try {
       final scanResult = await ref
@@ -305,11 +301,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+          SnackBar(
+            content: const Text(
               'Receipt scanned from URL. Review the transaction before saving.',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: cs.primary,
           ),
         );
       }
@@ -318,21 +314,56 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Receipt scan failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: cs.error,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isScanningReceipt = false;
-        });
-      }
+      if (mounted) setState(() => _isScanningReceipt = false);
+    }
+  }
+
+  Future<void> _showDiscardDialog() async {
+    final cs = Theme.of(context).colorScheme;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard scanned transaction?'),
+        content: const Text(
+          'A transaction was created from this scan. '
+          'Do you want to keep it or delete it?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: cs.error,
+              foregroundColor: cs.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (result == true) {
+      await ref
+          .read(transactionsProvider(widget.accountId).notifier)
+          .deleteTransaction(_scannedTransactionId!);
+      if (mounted) Navigator.pop(context, false);
+    } else {
+      Navigator.pop(context, true);
     }
   }
 
   void _populateFromScan(ReceiptScanModel scan) {
     final tx = scan.transaction;
+    final categoryIds = tx.categories.map((c) => c.id).toList();
     setState(() {
       _scannedTransactionId = tx.id;
       _type = tx.type;
@@ -343,7 +374,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       _descriptionController.text = tx.description ?? '';
       _selectedCategoryIds
         ..clear()
-        ..addAll(tx.categories.map((c) => c.id));
+        ..addAll(categoryIds);
+      _aiSuggestedCategoryIds
+        ..clear()
+        ..addAll(categoryIds);
+      _scannedItems
+        ..clear()
+        ..addAll(scan.items);
     });
   }
 
@@ -352,7 +389,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final categoriesState = ref.watch(categoriesProvider);
     final isEdit = widget.transaction != null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          if (_scannedTransactionId != null) {
+            _showDiscardDialog();
+          } else {
+            Navigator.pop(context, false);
+          }
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'Edit Transaction' : 'Add Transaction'),
       ),
@@ -367,9 +415,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     children: [
                       Expanded(
                         child: ChoiceChip(
-                          avatar: const Icon(
+                          avatar: Icon(
                             Icons.arrow_upward,
-                            color: Colors.red,
+                            color: Theme.of(context).colorScheme.error,
                           ),
                           label: const Text('Expense'),
                           selected: _type == TransactionType.expense,
@@ -383,9 +431,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ChoiceChip(
-                          avatar: const Icon(
+                          avatar: Icon(
                             Icons.arrow_downward,
-                            color: Colors.green,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                           label: const Text('Income'),
                           selected: _type == TransactionType.income,
@@ -443,12 +491,130 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                         ),
                         const SizedBox(height: 12),
                         if (_scannedTransactionId != null)
-                          const Text(
-                            'Receipt data loaded. You can edit the values and save the transaction.',
-                            style: TextStyle(color: Colors.green),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _aiSuggestedCategoryIds.isNotEmpty
+                                        ? 'Receipt scanned. AI suggested ${_aiSuggestedCategoryIds.length} ${_aiSuggestedCategoryIds.length == 1 ? 'category' : 'categories'}. Review before saving.'
+                                        : 'Receipt scanned. Review and save.',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                       ],
                     ),
+
+                  if (_scannedItems.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
+                      ),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Row(
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Receipt items (${_scannedItems.length})',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        initiallyExpanded: true,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: _scannedItems.asMap().entries.map((entry) {
+                                final i = entry.key;
+                                final item = entry.value;
+                                return Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.name,
+                                              style: const TextStyle(fontSize: 13),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${item.quantity % 1 == 0 ? item.quantity.toInt() : item.quantity}'
+                                            '${item.unit != null ? ' ${item.unit}' : ''}'
+                                            ' × ${item.unitPrice.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            item.totalPrice.toStringAsFixed(2),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (i < _scannedItems.length - 1)
+                                      Divider(
+                                        height: 1,
+                                        indent: 12,
+                                        endIndent: 12,
+                                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                                      ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   AppTextField(
                     controller: _valueController,
@@ -499,7 +665,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     trailing: const Icon(Icons.calendar_today),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.grey[400]!),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                     onTap: _selectDateTime,
                   ),
@@ -545,9 +713,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   categoriesState.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : categoriesState.categories.isEmpty
-                      ? const Text(
+                      ? Text(
                           'No categories available. Please create categories first on the Categories tab.',
-                          style: TextStyle(color: Colors.grey),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                         )
                       : Wrap(
                           spacing: 8,
@@ -556,11 +726,27 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                             final isSelected = _selectedCategoryIds.contains(
                               cat.id,
                             );
+                            final isAiSuggested =
+                                _aiSuggestedCategoryIds.contains(cat.id) &&
+                                isSelected;
                             return FilterChip(
                               avatar: cat.emoji != null
                                   ? Text(cat.emoji!)
                                   : null,
-                              label: Text(cat.name),
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(cat.name),
+                                  if (isAiSuggested) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.auto_awesome,
+                                      size: 11,
+                                      color: cat.categoryColor,
+                                    ),
+                                  ],
+                                ],
+                              ),
                               selected: isSelected,
                               selectedColor: cat.categoryColor.withValues(
                                 alpha: 0.3,
@@ -588,6 +774,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 }

@@ -68,10 +68,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = true}) {
+    final cs = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? cs.error : cs.primary,
         duration: const Duration(seconds: 3),
       ),
     );

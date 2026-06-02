@@ -48,10 +48,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = true}) {
+    final cs = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? cs.error : cs.primary,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -63,16 +64,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      // Убираем AppBar полностью, чтобы элементы летели строго в свои координаты
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Вместо AppBar делаем аккуратный отступ под челку/статусбар
             SizedBox(height: MediaQuery.of(context).padding.top + 20),
 
-            // ─── АНІМОВАНИЙ БЛОК ЛОГОТИПУ ───
             Center(
               child: Column(
                 children: [
@@ -112,7 +110,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
 
-            // ─────────────────────────────────
             const SizedBox(height: 40),
             AppTextField(
               controller: _loginEmailController,
@@ -129,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               prefixIcon: const Icon(Icons.lock),
               obscureText: true,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Checkbox(
@@ -146,16 +143,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: isLoading ? null : _handleLogin,
               isLoading: isLoading,
             ),
-            const SizedBox(height: 16),
-            AppOutlinedButton(
-              label: 'Test Credentials',
-              onPressed: isLoading
-                  ? null
-                  : () {
-                      _loginEmailController.text = 'test@example.com';
-                      _loginPasswordController.text = 'password123';
-                    },
-            ),
+
             const SizedBox(height: 16),
             TextButton(
               onPressed: isLoading

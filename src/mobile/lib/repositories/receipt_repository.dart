@@ -33,7 +33,6 @@ class ReceiptRepository {
 
       return response;
     } catch (e) {
-      // Fallback: use `http.MultipartRequest` to ensure proper multipart boundary handling
       try {
         final uri = Uri.parse(
           '${ApiConfig.baseUrl}${ApiConfig.receipts}/scan',

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:mobile/models/bank_integration_model.dart';
-import 'package:mobile/models/transaction_model.dart';
 import 'package:mobile/repositories/bank_integration_repository.dart';
 import 'package:mobile/services/api_client.dart';
 
@@ -82,6 +81,24 @@ class BankIntegrationNotifier extends StateNotifier<BankIntegrationState> {
       );
       await loadIntegrations();
       state = state.copyWith(message: 'Monobank connected successfully.');
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> deleteIntegration(String integrationId) async {
+    state = state.copyWith(isLoading: true, error: null, message: null);
+    try {
+      await repository.deleteIntegration(integrationId);
+      state = state.copyWith(
+        integrations: state.integrations
+            .where((i) => i.id != integrationId)
+            .toList(),
+        isLoading: false,
+        message: 'Monobank disconnected.',
+      );
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

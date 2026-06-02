@@ -32,7 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final userState = ref.watch(userProvider);
 
     return Scaffold(
-      body: _buildBody(),
+      body: SafeArea(bottom: false, child: _buildBody()),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).colorScheme.surface,

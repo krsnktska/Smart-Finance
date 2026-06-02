@@ -10,6 +10,7 @@ class CategoriesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     final categoriesState = ref.watch(categoriesProvider);
 
     return RefreshIndicator(
@@ -36,7 +37,7 @@ class CategoriesTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  Icon(Icons.error_outline, size: 48, color: cs.error),
                   const SizedBox(height: 16),
                   Text('Error: ${categoriesState.error}'),
                   const SizedBox(height: 16),
@@ -50,23 +51,24 @@ class CategoriesTab extends ConsumerWidget {
               ),
             )
           else if (categoriesState.categories.isEmpty)
-            Center(
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.category_outlined,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('No categories yet'),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => _showCreateCategoryDialog(context, ref),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create First Category'),
-                  ),
-                ],
+            // Нам нужно заполнить оставшееся пространство внутри ListView
+            SizedBox(
+              // Вычисляем высоту: берем высоту экрана и вычитаем примерно 200px на верхний Row и отступы
+              height: MediaQuery.of(context).size.height - 250,
+              child: Center(
+                child: Column(
+                  mainAxisSize:
+                      MainAxisSize.min, // Выравниваем элементы внутри колонки
+                  children: [
+                    Icon(
+                      Icons.category_outlined,
+                      size: 48,
+                      color: cs.onSurface.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('No categories yet'),
+                  ],
+                ),
               ),
             )
           else
@@ -214,11 +216,12 @@ class CategoriesTab extends ConsumerWidget {
                     );
                 if (!context.mounted) return;
                 Navigator.pop(context);
+                final cs = Theme.of(context).colorScheme;
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Category created'),
-                      backgroundColor: Colors.green,
+                    SnackBar(
+                      content: const Text('Category created'),
+                      backgroundColor: cs.primary,
                     ),
                   );
                 } else {
@@ -226,7 +229,7 @@ class CategoriesTab extends ConsumerWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(error ?? 'Could not create category'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: cs.error,
                     ),
                   );
                 }
@@ -345,11 +348,12 @@ class CategoriesTab extends ConsumerWidget {
                     );
                 if (!context.mounted) return;
                 Navigator.pop(context);
+                final cs = Theme.of(context).colorScheme;
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Category updated'),
-                      backgroundColor: Colors.green,
+                    SnackBar(
+                      content: const Text('Category updated'),
+                      backgroundColor: cs.primary,
                     ),
                   );
                 } else {
@@ -357,7 +361,7 @@ class CategoriesTab extends ConsumerWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(error ?? 'Could not update category'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: cs.error,
                     ),
                   );
                 }
@@ -387,18 +391,22 @@ class CategoriesTab extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () async {
               final success = await ref
                   .read(categoriesProvider.notifier)
                   .deleteCategory(categoryId);
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Category deleted'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Category deleted'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
@@ -406,7 +414,7 @@ class CategoriesTab extends ConsumerWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(error ?? 'Could not delete category'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: cs.error,
                   ),
                 );
               }

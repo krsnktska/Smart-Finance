@@ -29,6 +29,8 @@ final colorScheme = ColorScheme.fromSeed(
   onSurface: const Color.fromARGB(255, 110, 223, 138),
   secondary: const Color.fromARGB(255, 0, 184, 212),
   onSecondary: Colors.black,
+  tertiary: const Color.fromARGB(255, 176, 236, 11),
+  onTertiary: Colors.black,
   error: const Color.fromARGB(255, 255, 82, 82),
   onError: Colors.white,
 );
@@ -96,14 +98,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         }
       }
     } on PlatformException {
-      // ignore: avoid_print
       print('Failed to get initial deep link');
     }
   }
 
   void _handleDeepLink(Uri uri) {
     if (uri.scheme != 'smartfinance') return;
-    // ignore: avoid_print
     print('Deep link received: $uri');
 
     if (uri.host != 'gmail-callback') return;
@@ -111,7 +111,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final authState = ref.read(authProvider);
     if (!authState.isAuthenticated) {
       _pendingDeepLink = uri;
-      // ignore: avoid_print
       print('Deep link deferred until authentication is ready');
       return;
     }
@@ -138,6 +137,33 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           navigatorKey.currentState?.pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const HomeScreen()),
+            (route) => false,
+          );
+        });
+        return;
+      }
+
+      // Logout: was authenticated, now not (and not initializing)
+      if (prev?.isAuthenticated == true &&
+          !next.isAuthenticated &&
+          !next.isInitializing) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          navigatorKey.currentState?.pushAndRemoveUntil(
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 400),
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const LoginScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeIn,
+                      ),
+                      child: child,
+                    );
+                  },
+            ),
             (route) => false,
           );
         });

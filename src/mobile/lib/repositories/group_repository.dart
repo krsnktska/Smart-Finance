@@ -92,6 +92,17 @@ class GroupRepository {
     await apiClient.delete('${ApiConfig.groups}/$groupId/members/$userId');
   }
 
+  Future<void> updateMemberRole({
+    required String groupId,
+    required String userId,
+    required bool isOwner,
+  }) async {
+    await apiClient.put(
+      '${ApiConfig.groups}/$groupId/members/$userId/role',
+      data: {'isOwner': isOwner},
+    );
+  }
+
   Future<List<AccountModel>> getAccounts(String groupId) async {
     final response = await apiClient.get(
       '${ApiConfig.groups}/$groupId/accounts',

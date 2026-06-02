@@ -49,11 +49,9 @@ class ApiClient {
   }) async {
     try {
       if (data is FormData) {
-        // Temporarily clear base contentType so Dio can generate multipart boundary
         final prevContentType = _dio.options.contentType;
         _dio.options.contentType = null;
         try {
-          // Build headers from current options but remove any content-type
           final newHeaders = Map<String, dynamic>.from(_dio.options.headers);
           if (headers != null) {
             newHeaders.addAll(headers);

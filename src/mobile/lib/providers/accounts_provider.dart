@@ -5,6 +5,7 @@ import 'package:mobile/services/api_client.dart';
 import 'package:mobile/models/account_model.dart';
 import 'package:mobile/models/account_summary_model.dart';
 import 'package:mobile/models/category_spending_model.dart';
+import 'package:mobile/providers/groups_provider.dart';
 
 final accountRepositoryProvider = Provider((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -34,20 +35,65 @@ class AccountsState {
 final accountsProvider = StateNotifierProvider<AccountsNotifier, AccountsState>(
   (ref) {
     final accountRepository = ref.watch(accountRepositoryProvider);
-    return AccountsNotifier(accountRepository: accountRepository);
+    return AccountsNotifier(accountRepository: accountRepository, ref: ref);
   },
 );
 
 class AccountsNotifier extends StateNotifier<AccountsState> {
   final AccountRepository accountRepository;
+  final Ref ref;
 
-  AccountsNotifier({required this.accountRepository}) : super(AccountsState());
+  AccountsNotifier({required this.accountRepository, required this.ref})
+    : super(AccountsState());
 
   Future<void> loadAccounts() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
+      // Load personal accounts
       final accounts = await accountRepository.getAll();
-      state = state.copyWith(accounts: accounts, isLoading: false);
+
+      // Ensure groups are loaded first
+      await ref.read(groupsProvider.notifier).loadGroups();
+
+      // Load group accounts
+      final groupsState = ref.read(groupsProvider);
+      List<AccountModel> groupAccounts = [];
+
+      for (final group in groupsState.groups) {
+        try {
+          final groupAccountsList = await ref
+              .read(groupsProvider.notifier)
+              .getGroupAccounts(group.id);
+          // Add group information to each account
+          groupAccounts.addAll(
+            groupAccountsList.map((acc) {
+              return AccountModel(
+                id: acc.id,
+                name: acc.name,
+                currency: acc.currency,
+                userId: acc.userId,
+                groupId: group.id,
+                groupName: group.name,
+              );
+            }),
+          );
+        } catch (e) {
+          // Skip this group if there's an error loading its accounts
+          continue;
+        }
+      }
+
+      // Combine personal and group accounts, preferring group representation when duplicate ids exist
+      final accountMap = <String, AccountModel>{};
+      for (final account in accounts) {
+        accountMap[account.id] = account;
+      }
+      for (final account in groupAccounts) {
+        accountMap[account.id] = account;
+      }
+
+      final allAccounts = accountMap.values.toList();
+      state = state.copyWith(accounts: allAccounts, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }

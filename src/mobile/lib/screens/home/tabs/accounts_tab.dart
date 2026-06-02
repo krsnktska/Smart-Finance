@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/models/account_model.dart';
 import 'package:mobile/providers/accounts_provider.dart';
 import 'package:mobile/screens/account_detail_screen.dart';
 import 'package:mobile/utils/currency_utils.dart';
@@ -38,7 +39,7 @@ class AccountsTab extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
                   const SizedBox(height: 16),
                   Text('Error: ${accountsState.error}'),
                   const SizedBox(height: 16),
@@ -75,54 +76,157 @@ class AccountsTab extends ConsumerWidget {
               ),
             )
           else
-            ...accountsState.accounts.map((account) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: Icon(
-                    Icons.account_balance_wallet,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: Text(account.name),
-                  subtitle: Text(account.currency),
-                  trailing: PopupMenuButton(
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        onTap: () {
-                          _showDeleteAccountDialog(
-                            context,
-                            ref,
-                            account.id,
-                            account.name,
-                          );
-                        },
-                        child: const Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AccountDetailScreen(account: account),
-                      ),
-                    ).then((_) {
-                      ref.read(accountsProvider.notifier).loadAccounts();
-                    });
-                  },
-                ),
-              );
-            }),
+            ..._buildAccountSections(context, ref, accountsState.accounts),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildAccountSections(
+    BuildContext context,
+    WidgetRef ref,
+    List<AccountModel> allAccounts,
+  ) {
+    // Separate personal and group accounts
+    final personalAccounts = allAccounts
+        .where((acc) => acc.groupId == null)
+        .toList();
+    final groupAccounts = allAccounts
+        .where((acc) => acc.groupId != null)
+        .toList();
+
+    // Group accounts by group
+    final groupedAccounts = <String, List<AccountModel>>{};
+    for (final acc in groupAccounts) {
+      final groupId = acc.groupId!;
+      groupedAccounts.putIfAbsent(groupId, () => []).add(acc);
+    }
+
+    final sections = <Widget>[];
+
+    // Add personal wallets section
+    if (personalAccounts.isNotEmpty) {
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            'My Wallets',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+      sections.addAll(
+        personalAccounts.map((account) {
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              leading: Icon(
+                Icons.account_balance_wallet,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(account.name),
+              subtitle: Text(account.currency),
+              trailing: PopupMenuButton(
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    onTap: () {
+                      _showDeleteAccountDialog(
+                        context,
+                        ref,
+                        account.id,
+                        account.name,
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 20, color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 8),
+                        const Text('Delete'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AccountDetailScreen(account: account),
+                  ),
+                ).then((_) {
+                  ref.read(accountsProvider.notifier).loadAccounts();
+                });
+              },
+            ),
+          );
+        }),
+      );
+    }
+
+    // Add group wallets sections
+    groupedAccounts.forEach((groupId, accounts) {
+      if (accounts.isNotEmpty) {
+        final groupName = accounts.first.groupName ?? 'Unknown Group';
+
+        // Add group header
+        sections.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 24, bottom: 16),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.groups,
+                  color: Theme.of(context).colorScheme.secondary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    groupName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        // Add group accounts
+        sections.addAll(
+          accounts.map((account) {
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: Icon(
+                  Icons.account_balance_wallet,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+                title: Text(account.name),
+                subtitle: Text(account.currency),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AccountDetailScreen(account: account),
+                    ),
+                  ).then((_) {
+                    ref.read(accountsProvider.notifier).loadAccounts();
+                  });
+                },
+              ),
+            );
+          }),
+        );
+      }
+    });
+
+    return sections;
   }
 
   void _showCreateAccountDialog(BuildContext context, WidgetRef ref) {
@@ -199,18 +303,19 @@ class AccountsTab extends ConsumerWidget {
                   );
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Wallet created !'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Wallet created!'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Error creating wallet'),
-                    backgroundColor: Colors.red,
+                  SnackBar(
+                    content: const Text('Error creating wallet'),
+                    backgroundColor: cs.error,
                   ),
                 );
               }
@@ -241,29 +346,34 @@ class AccountsTab extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () async {
               final success = await ref
                   .read(accountsProvider.notifier)
                   .deleteAccount(accountId);
               if (!context.mounted) return;
               Navigator.pop(context);
+              final cs = Theme.of(context).colorScheme;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Wallet deleted !'),
-                    backgroundColor: Colors.green,
+                  SnackBar(
+                    content: const Text('Wallet deleted!'),
+                    backgroundColor: cs.primary,
                   ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Error deleting wallet'),
-                    backgroundColor: Colors.red,
+                  SnackBar(
+                    content: const Text('Error deleting wallet'),
+                    backgroundColor: cs.error,
                   ),
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete'),
           ),
         ],
       ),
