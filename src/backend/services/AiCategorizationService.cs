@@ -10,8 +10,8 @@ namespace SmartFinance.Services;
 public class AiCategorizationService(IConfiguration configuration, IHttpClientFactory httpClientFactory, ILogger<AiCategorizationService> logger) : IAiCategorizationService
 {
     private readonly string _apiKey = configuration["AI:ApiKey"] ?? string.Empty;
-    private readonly string _apiUrl = configuration["AI__ApiUrl"] ?? "https://api.openai.com/v1/chat/completions";
-    private readonly string _model = configuration["AI__Model"] ?? "gpt-4o-mini";
+    private readonly string _apiUrl = configuration["AI:ApiUrl"] ?? "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
+    private readonly string _model = configuration["AI:Model"] ?? "gemini-1.5-flash";
 
     public async Task<List<Guid>> CategorizeItemsAsync(List<ParsedReceiptItem> items, List<CategoryResponse> availableCategories)
     {
@@ -31,32 +31,45 @@ public class AiCategorizationService(IConfiguration configuration, IHttpClientFa
         try
         {
             var client = httpClientFactory.CreateClient("AI");
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
 
             var requestBody = new
             {
-                model = _model,
-                messages = new[]
+                contents = new[]
                 {
-                    new { role = "system", content = systemPrompt },
-                    new { role = "user", content = userPrompt }
+                    new
+                    {
+                        role = "user",
+                        parts = new[] { new { text = userPrompt } }
+                    }
                 },
-                temperature = 0,
-                max_tokens = 500
+                systemInstruction = new
+                {
+                    parts = new[] { new { text = systemPrompt } }
+                },
+                generationConfig = new
+                {
+                    temperature = 0,
+                    maxOutputTokens = 500,
+                    responseMimeType = "application/json"
+                }
             };
 
             var json = JsonSerializer.Serialize(requestBody);
-            var response = await client.PostAsync(_apiUrl, new StringContent(json, Encoding.UTF8, "application/json"));
+            
+            // Format URL with model and api key
+            var url = string.Format(_apiUrl, _model, _apiKey);
+            var response = await client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("AI API returned {Status}", response.StatusCode);
+                var errorBody = await response.Content.ReadAsStringAsync();
+                logger.LogWarning("Gemini API returned {Status}. Body: {Body}", response.StatusCode, errorBody);
                 return Enumerable.Repeat(Guid.Empty, items.Count).ToList();
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
-            var aiResponse = JsonSerializer.Deserialize<AiChatResponse>(responseJson);
-            var content = aiResponse?.Choices?.FirstOrDefault()?.Message?.Content ?? "[]";
+            var aiResponse = JsonSerializer.Deserialize<GeminiResponse>(responseJson);
+            var content = aiResponse?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text ?? "[]";
 
             var extractedJson = ExtractJsonArray(content);
             var categoryIds = JsonSerializer.Deserialize<List<string?>>(extractedJson) ?? [];
@@ -79,7 +92,8 @@ public class AiCategorizationService(IConfiguration configuration, IHttpClientFa
         return start >= 0 && end > start ? content[start..(end + 1)] : "[]";
     }
 
-    private record AiChatResponse([property: JsonPropertyName("choices")] List<AiChoice>? Choices);
-    private record AiChoice([property: JsonPropertyName("message")] AiMessage? Message);
-    private record AiMessage([property: JsonPropertyName("content")] string? Content);
+    private record GeminiResponse([property: JsonPropertyName("candidates")] List<GeminiCandidate>? Candidates);
+    private record GeminiCandidate([property: JsonPropertyName("content")] GeminiContent? Content);
+    private record GeminiContent([property: JsonPropertyName("parts")] List<GeminiPart>? Parts);
+    private record GeminiPart([property: JsonPropertyName("text")] string? Text);
 }
