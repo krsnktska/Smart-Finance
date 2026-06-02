@@ -55,7 +55,7 @@ public class AiCategorizationService(IConfiguration configuration, IHttpClientFa
             };
 
             var json = JsonSerializer.Serialize(requestBody);
-            
+
             // Format URL with model and api key
             var url = string.Format(_apiUrl, _model, _apiKey);
             var response = await client.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
@@ -68,6 +68,7 @@ public class AiCategorizationService(IConfiguration configuration, IHttpClientFa
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
+            logger.LogInformation("AI Categorization Response: {Body}", responseJson);
             var aiResponse = JsonSerializer.Deserialize<GeminiResponse>(responseJson);
             var content = aiResponse?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text ?? "[]";
 
