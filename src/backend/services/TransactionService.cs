@@ -104,6 +104,12 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
 
         await context.SaveChangesAsync();
 
+        await context.Entry(transaction)
+            .Collection(t => t.TransactionCategories)
+            .Query()
+            .Include(tc => tc.Category)
+            .LoadAsync();
+
         return ServiceResult<TransactionResponse>.Ok(MapTransaction(transaction));
     }
 
