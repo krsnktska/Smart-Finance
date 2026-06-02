@@ -179,12 +179,12 @@ public class GroupsController(IGroupService groupService) : ControllerBase
     }
 
     /// <summary>
-    /// Updates a member's role in a group. Only the group owner can perform this action.
+    /// Updates a member's permissions in a group. Only the group owner can perform this action.
     /// </summary>
     /// <param name="id">Group identifier.</param>
-    /// <param name="userId">Identifier of the user whose role is being updated.</param>
-    /// <param name="request">Update request containing the new role (IsOwner).</param>
-    /// <response code="204">Role updated successfully.</response>
+    /// <param name="userId">Identifier of the user whose permissions are being updated.</param>
+    /// <param name="request">Update request containing the new role and permissions (IsOwner, CanView, CanWrite).</param>
+    /// <response code="204">Permissions updated successfully.</response>
     /// <response code="400">Cannot remove the last owner's privileges.</response>
     /// <response code="401">Requester is not authenticated.</response>
     /// <response code="403">Requester is not an owner of the group.</response>
@@ -197,7 +197,7 @@ public class GroupsController(IGroupService groupService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateMemberRole(Guid id, Guid userId, [FromBody] UpdateMemberRoleRequest request)
     {
-        var result = await groupService.UpdateMemberRoleAsync(id, GetCurrentUserId(), userId, request.IsOwner);
+        var result = await groupService.UpdateMemberRoleAsync(id, GetCurrentUserId(), userId, request.IsOwner, request.CanView, request.CanWrite);
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),

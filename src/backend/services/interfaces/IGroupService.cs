@@ -12,7 +12,7 @@ public interface IGroupService
     Task<ServiceResult> DeleteAsync(Guid id, Guid userId);
     Task<ServiceResult> AddMemberAsync(Guid groupId, Guid currentUserId, Guid targetUserId);
     Task<ServiceResult> RemoveMemberAsync(Guid groupId, Guid currentUserId, Guid targetUserId);
-    Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner);
+    Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner, bool canView, bool canWrite);
     Task<ServiceResult> LeaveAsync(Guid groupId, Guid userId);
     Task<ServiceResult<List<AccountResponse>>> GetAccountsAsync(Guid groupId, Guid userId);
     Task<ServiceResult> AddAccountAsync(Guid groupId, Guid userId, Guid accountId);

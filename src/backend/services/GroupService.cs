@@ -37,7 +37,7 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            UserGroups = [new UserGroup { UserId = userId, IsOwner = true }]
+            UserGroups = [new UserGroup { UserId = userId, IsOwner = true, CanView = true, CanWrite = true }]
         };
 
         context.Groups.Add(group);
@@ -101,7 +101,7 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         var targetUser = await context.Users.FindAsync(targetUserId);
         if (targetUser is null) return ServiceResult.NotFound();
 
-        context.UserGroups.Add(new UserGroup { UserId = targetUserId, GroupId = groupId, IsOwner = false });
+        context.UserGroups.Add(new UserGroup { UserId = targetUserId, GroupId = groupId, IsOwner = false, CanView = true, CanWrite = false });
         await context.SaveChangesAsync();
 
         return ServiceResult.Ok();
@@ -128,7 +128,7 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         return ServiceResult.Ok();
     }
 
-    public async Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner)
+    public async Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner, bool canView, bool canWrite)
     {
         var group = await context.Groups
             .Include(g => g.UserGroups)
@@ -146,12 +146,12 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         {
             var otherOwnersCount = group.UserGroups.Count(ug => ug.IsOwner && ug.UserId != currentUserId);
             if (otherOwnersCount == 0)
-            {
                 return ServiceResult.BadRequest();
-            }
         }
 
         targetMembership.IsOwner = isOwner;
+        targetMembership.CanView = isOwner || canView;
+        targetMembership.CanWrite = isOwner || canWrite;
         await context.SaveChangesAsync();
 
         return ServiceResult.Ok();
@@ -241,6 +241,6 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
 
     private static GroupResponse MapGroup(Group g) =>
         new(g.Id, g.Name, g.UserGroups
-            .Select(ug => new GroupMemberResponse(ug.UserId, ug.User.Name, ug.User.Email, ug.IsOwner))
+            .Select(ug => new GroupMemberResponse(ug.UserId, ug.User.Name, ug.User.Email, ug.IsOwner, ug.CanView, ug.CanWrite))
             .ToList());
 }

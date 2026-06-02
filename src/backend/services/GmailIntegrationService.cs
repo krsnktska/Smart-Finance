@@ -102,11 +102,13 @@ public class GmailIntegrationService(
         try
         {
             var flow = CreateFlow();
+            var remainingSeconds = (long)(tokenRecord.TokenExpiry - DateTimeOffset.UtcNow).TotalSeconds;
             var token = new Google.Apis.Auth.OAuth2.Responses.TokenResponse
             {
                 AccessToken = tokenRecord.AccessToken,
                 RefreshToken = tokenRecord.RefreshToken,
-                ExpiresInSeconds = (long)(tokenRecord.TokenExpiry - DateTimeOffset.UtcNow).TotalSeconds
+                IssuedUtc = DateTime.UtcNow,
+                ExpiresInSeconds = Math.Max(0, remainingSeconds)
             };
 
             var credential = new UserCredential(flow, userId.ToString(), token);
