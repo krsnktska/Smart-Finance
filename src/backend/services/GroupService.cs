@@ -128,6 +128,35 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         return ServiceResult.Ok();
     }
 
+    public async Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner)
+    {
+        var group = await context.Groups
+            .Include(g => g.UserGroups)
+            .FirstOrDefaultAsync(g => g.Id == groupId && g.UserGroups.Any(ug => ug.UserId == currentUserId));
+
+        if (group is null) return ServiceResult.NotFound();
+
+        var requesterMembership = group.UserGroups.First(ug => ug.UserId == currentUserId);
+        if (!requesterMembership.IsOwner) return ServiceResult.Forbidden();
+
+        var targetMembership = group.UserGroups.FirstOrDefault(ug => ug.UserId == targetUserId);
+        if (targetMembership is null) return ServiceResult.NotFound();
+
+        if (currentUserId == targetUserId && !isOwner)
+        {
+            var otherOwnersCount = group.UserGroups.Count(ug => ug.IsOwner && ug.UserId != currentUserId);
+            if (otherOwnersCount == 0)
+            {
+                return ServiceResult.BadRequest();
+            }
+        }
+
+        targetMembership.IsOwner = isOwner;
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
     public async Task<ServiceResult> LeaveAsync(Guid groupId, Guid userId)
     {
         var group = await context.Groups

@@ -179,6 +179,36 @@ public class GroupsController(IGroupService groupService) : ControllerBase
     }
 
     /// <summary>
+    /// Updates a member's role in a group. Only the group owner can perform this action.
+    /// </summary>
+    /// <param name="id">Group identifier.</param>
+    /// <param name="userId">Identifier of the user whose role is being updated.</param>
+    /// <param name="request">Update request containing the new role (IsOwner).</param>
+    /// <response code="204">Role updated successfully.</response>
+    /// <response code="400">Cannot remove the last owner's privileges.</response>
+    /// <response code="401">Requester is not authenticated.</response>
+    /// <response code="403">Requester is not an owner of the group.</response>
+    /// <response code="404">Group or member not found.</response>
+    [HttpPut("{id:guid}/members/{userId:guid}/role")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMemberRole(Guid id, Guid userId, [FromBody] UpdateMemberRoleRequest request)
+    {
+        var result = await groupService.UpdateMemberRoleAsync(id, GetCurrentUserId(), userId, request.IsOwner);
+        return result.Status switch
+        {
+            ServiceStatus.Ok => NoContent(),
+            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.BadRequest => BadRequest(new { message = "Cannot remove owner privileges from the last owner." }),
+            _ => StatusCode(500)
+        };
+    }
+
+    /// <summary>
     /// Allows the authenticated user to leave a group they are a member of.
     /// The group owner cannot leave — they must delete the group instead.
     /// </summary>
