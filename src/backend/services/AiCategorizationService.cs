@@ -11,7 +11,7 @@ public class AiCategorizationService(IConfiguration configuration, IHttpClientFa
 {
     private readonly string _apiKey = configuration["AI:ApiKey"] ?? string.Empty;
     private readonly string _apiUrl = configuration["AI:ApiUrl"] ?? "https://generativelanguage.googleapis.com/v1beta/models/{0}:generateContent?key={1}";
-    private readonly string _model = configuration["AI:Model"] ?? "gemini-1.5-flash";
+    private readonly string _model = configuration["AI:Model"] ?? "gemini-2.5-flash";
 
     public async Task<List<Guid>> CategorizeItemsAsync(List<ParsedReceiptItem> items, List<CategoryResponse> availableCategories)
     {
