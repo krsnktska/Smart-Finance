@@ -47,8 +47,8 @@ public class AccountsController(IAccountService accountService, IStatisticsServi
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Account not found or does not belong to you." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -87,8 +87,8 @@ public class AccountsController(IAccountService accountService, IStatisticsServi
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Account not found or does not belong to you." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -109,8 +109,8 @@ public class AccountsController(IAccountService accountService, IStatisticsServi
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Account not found or does not belong to you." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -137,8 +137,8 @@ public class AccountsController(IAccountService accountService, IStatisticsServi
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Account not found or does not belong to you." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -165,8 +165,8 @@ public class AccountsController(IAccountService accountService, IStatisticsServi
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Account not found or does not belong to you." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

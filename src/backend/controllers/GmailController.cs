@@ -133,7 +133,7 @@ public class GmailController(IGmailIntegrationService gmailService) : Controller
     public async Task<IActionResult> GetStatus()
     {
         var status = await gmailService.GetStatusAsync(GetCurrentUserId());
-        if (status is null) return NotFound();
+        if (status is null) return NotFound(new { message = "Gmail integration not connected for this user." });
         return Ok(status);
     }
 
@@ -153,9 +153,9 @@ public class GmailController(IGmailIntegrationService gmailService) : Controller
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound("Gmail integration not found. Please connect Gmail first."),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => BadRequest("Failed to scan inbox.")
+            ServiceStatus.NotFound => NotFound(new { message = "Gmail integration not found. Please connect Gmail first." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            _ => BadRequest(new { message = "Failed to scan inbox." })
         };
     }
 

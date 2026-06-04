@@ -47,8 +47,8 @@ public class CategoriesController(ICategoryService categoryService) : Controller
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Category not found or you do not have access to it." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -89,9 +89,9 @@ public class CategoriesController(ICategoryService categoryService) : Controller
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Category not found or does not belong to you." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Cannot modify a global category." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -114,9 +114,9 @@ public class CategoriesController(ICategoryService categoryService) : Controller
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Category not found or does not belong to you." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Cannot delete a global category." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

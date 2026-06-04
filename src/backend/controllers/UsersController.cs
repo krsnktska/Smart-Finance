@@ -33,8 +33,8 @@ public class UsersController(IUserService userService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "No user with this email exists." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -55,8 +55,8 @@ public class UsersController(IUserService userService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "User profile not found." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -78,8 +78,8 @@ public class UsersController(IUserService userService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "User profile not found." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -100,9 +100,9 @@ public class UsersController(IUserService userService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.NotFound => NotFound(new { message = "User profile not found." }),
             ServiceStatus.Unauthorized => Unauthorized(new { message = "Current password is incorrect." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

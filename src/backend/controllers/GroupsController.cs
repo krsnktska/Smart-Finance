@@ -47,8 +47,8 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or you are not a member." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -89,9 +89,9 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or you are not a member." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can update the group name." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -114,9 +114,9 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or you are not a member." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can delete the group." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -142,10 +142,10 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.NotFound => NotFound(new { message = "Group or user not found." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can add members." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "User is already a member of this group." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -171,10 +171,10 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.NotFound => NotFound(new { message = "Group or member not found." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can remove members." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "Cannot remove the owner from the group." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -201,10 +201,10 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.NotFound => NotFound(new { message = "Group or member not found." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can update member roles." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "Cannot remove owner privileges from the last owner." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -228,9 +228,9 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or you are not a member." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "The group owner cannot leave. You must delete the group instead." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -252,8 +252,8 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group not found or you are not a member." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -279,10 +279,10 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.NotFound => NotFound(new { message = "Group or account not found." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can add accounts." }),
             ServiceStatus.Conflict => Conflict(new { message = "Account is already in this group." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -306,9 +306,9 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Group or account not found in this group." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can remove accounts." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

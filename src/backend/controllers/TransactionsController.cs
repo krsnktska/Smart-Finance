@@ -35,8 +35,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not have permission to view transactions for this account." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -58,8 +58,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Transaction not found or access is denied." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -81,8 +81,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -105,8 +105,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Transaction not found or access is denied." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -127,8 +127,8 @@ public class TransactionsController(ITransactionService transactionService) : Co
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Transaction not found or access is denied." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

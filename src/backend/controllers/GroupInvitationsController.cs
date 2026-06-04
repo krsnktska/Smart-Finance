@@ -38,10 +38,10 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(GetGroupInvitations), new { id }, result.Data),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can invite members." }),
             ServiceStatus.Conflict => Conflict(new { message = "User is already a member or has a pending invitation." }),
             ServiceStatus.NotFound => NotFound(new { message = "Group not found or no user with this email exists." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -58,8 +58,8 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => StatusCode(500)
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the group owner can view active invitations." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -91,9 +91,9 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.NotFound => NotFound(new { message = "Invitation not found." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "Invitation is no longer pending." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -114,9 +114,9 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
+            ServiceStatus.NotFound => NotFound(new { message = "Invitation not found." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "Invitation is no longer pending." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -140,10 +140,10 @@ public class GroupInvitationsController(IGroupInvitationService invitationServic
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            ServiceStatus.Forbidden => Forbid(),
+            ServiceStatus.NotFound => NotFound(new { message = "Invitation not found." }),
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "Only the user who sent the invitation can cancel it." }),
             ServiceStatus.BadRequest => BadRequest(new { message = "Invitation is no longer pending." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 

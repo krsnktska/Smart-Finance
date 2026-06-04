@@ -31,7 +31,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(Register), result.Data),
             ServiceStatus.Conflict => Conflict(new { message = "Email is already in use." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -52,7 +52,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             ServiceStatus.Ok => Ok(result.Data),
             ServiceStatus.Unauthorized => Unauthorized(new { message = "Invalid email or password." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -73,7 +73,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             ServiceStatus.Ok => Ok(result.Data),
             ServiceStatus.Unauthorized => Unauthorized(new { message = "Invalid or expired refresh token." }),
-            _ => StatusCode(500)
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 
@@ -92,8 +92,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            _ => StatusCode(500)
+            ServiceStatus.NotFound => NotFound(new { message = "Refresh token not found." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
         };
     }
 }

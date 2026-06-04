@@ -37,8 +37,8 @@ public class ReceiptsController(IReceiptService receiptService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(ScanPhoto), result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => BadRequest()
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            _ => BadRequest(new { message = "Failed to scan receipt. Please make sure the image is clear and contains a valid receipt." })
         };
     }
 
@@ -60,8 +60,8 @@ public class ReceiptsController(IReceiptService receiptService) : ControllerBase
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(ScrapeUrl), result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => BadRequest()
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            _ => BadRequest(new { message = "Failed to scrape receipt from the provided URL. Please check the URL format and try again." })
         };
     }
 

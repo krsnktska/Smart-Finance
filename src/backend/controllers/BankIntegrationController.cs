@@ -37,13 +37,13 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
     public async Task<IActionResult> GetMonobankAccounts([FromQuery] string apiToken)
     {
         if (string.IsNullOrWhiteSpace(apiToken))
-            return BadRequest("API Token is required.");
+            return BadRequest(new { message = "API Token is required." });
 
         var result = await monobankService.GetAccountsAsync(apiToken);
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            _ => BadRequest()
+            _ => BadRequest(new { message = "Could not fetch Monobank accounts. Make sure your API Token is valid." })
         };
     }
 
@@ -62,8 +62,8 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
         return result.Status switch
         {
             ServiceStatus.Ok => CreatedAtAction(nameof(GetMonobankIntegrations), result.Data),
-            ServiceStatus.Forbidden => Forbid(),
-            _ => BadRequest()
+            ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            _ => BadRequest(new { message = "Failed to setup Monobank integration. Make sure the API Token is valid and the accounts are correct." })
         };
     }
 
@@ -81,8 +81,8 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
         return result.Status switch
         {
             ServiceStatus.Ok => Ok(result.Data),
-            ServiceStatus.NotFound => NotFound(),
-            _ => BadRequest()
+            ServiceStatus.NotFound => NotFound(new { message = "Monobank integration not found or does not belong to you." }),
+            _ => BadRequest(new { message = "Failed to sync Monobank transactions. Please check your api token or date range." })
         };
     }
 
@@ -99,8 +99,8 @@ public class BankIntegrationController(IMonobankService monobankService) : Contr
         return result.Status switch
         {
             ServiceStatus.Ok => NoContent(),
-            ServiceStatus.NotFound => NotFound(),
-            _ => BadRequest()
+            ServiceStatus.NotFound => NotFound(new { message = "Monobank integration not found or does not belong to you." }),
+            _ => BadRequest(new { message = "Failed to delete integration." })
         };
     }
 
