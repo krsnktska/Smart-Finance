@@ -73,7 +73,7 @@ public class ReceiptService(
             Id = Guid.NewGuid(),
             Type = TransactionType.Expense,
             Value = parsed.Total > 0 ? parsed.Total : parsed.Items.Sum(i => i.TotalPrice),
-            OccurredAt = parsed.OccurredAt,
+            OccurredAt = parsed.OccurredAt.ToUniversalTime(),
             Name = parsed.StoreName,
             Description = $"{source}. Товарів: {parsed.Items.Count}",
             Currency = parsed.Currency,

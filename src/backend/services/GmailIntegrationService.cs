@@ -237,7 +237,7 @@ public class GmailIntegrationService(
             Id = Guid.NewGuid(),
             Type = TransactionType.Expense,
             Value = receipt.Total,
-            OccurredAt = receipt.OccurredAt,
+            OccurredAt = receipt.OccurredAt.ToUniversalTime(),
             Name = receipt.StoreName,
             Description = $"Автоматично імпортовано з Gmail. Товарів: {receipt.Items.Count}",
             Currency = receipt.Currency,

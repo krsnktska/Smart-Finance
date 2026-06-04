@@ -64,7 +64,7 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
             Type = request.Type,
             SpecialType = request.SpecialType,
             Value = request.Value,
-            OccurredAt = request.OccurredAt,
+            OccurredAt = request.OccurredAt.ToUniversalTime(),
             Name = request.Name,
             Description = request.Description,
             Currency = request.Currency,
@@ -111,7 +111,7 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
         if (request.Type.HasValue) transaction.Type = request.Type.Value;
         if (request.SpecialType.HasValue) transaction.SpecialType = request.SpecialType;
         if (request.Value.HasValue) transaction.Value = request.Value.Value;
-        if (request.OccurredAt.HasValue) transaction.OccurredAt = request.OccurredAt.Value;
+        if (request.OccurredAt.HasValue) transaction.OccurredAt = request.OccurredAt.Value.ToUniversalTime();
         if (request.Name is not null) transaction.Name = request.Name;
         if (request.Description is not null) transaction.Description = request.Description;
         if (request.Currency is not null) transaction.Currency = request.Currency;
