@@ -80,28 +80,46 @@ public partial class ReceiptParserService(
 
         var client = httpClientFactory.CreateClient("AI");
 
-        var systemPrompt = 
-            "You are a receipt parser. Analyze the OCR text of a receipt and extract structured receipt data as JSON. " +
-            "Return a JSON object conforming exactly to the following structure:\n" +
+        var systemPrompt =
+            "You are an expert Ukrainian fiscal receipt (фіскальний чек) parser. " +
+            "Analyze the raw OCR text of a receipt and return ONLY a valid JSON object — no markdown, no code fences, no extra explanation.\n\n" +
+            "## Currency detection\n" +
+            "- If the text contains 'грн', 'ГРН', 'UAH' or 'гривн' → use \"UAH\"\n" +
+            "- If the text contains 'USD' or '$' → use \"USD\"\n" +
+            "- If the text contains 'EUR' or '€' → use \"EUR\"\n" +
+            "- Default to \"UAH\"\n\n" +
+            "## Ukrainian fiscal receipt format\n" +
+            "Ukrainian fiscal receipts often have a complex multi-line structure per product:\n" +
+            "  LINE 1: QUANTITY x UNIT_PRICE = (e.g. '1.000 X 29.90 =' or '2.000 X 13.50 =')\n" +
+            "  LINE 2+: Код УКТЗЕД XXXXXXXXX  (product tax code — SKIP THIS)\n" +
+            "  LINE 3+: Штрих код XXXXXXXX    (barcode — SKIP THIS)\n" +
+            "  LINE 4: ITEM_NAME with total price at the end of that line OR on next line\n" +
+            "The UNIT_PRICE in the 'QUANTITY X UNIT_PRICE =' line corresponds to the NEXT non-code item name, NOT the previous one.\n" +
+            "Lines containing 'Код УКТЗЕД', 'Штрих код', 'УКТЗЕД', 'ПРОГРАМА', 'ЛОЯЛЬНОСТІ', 'Карта', 'бонус', 'ЕПЗ', 'VISA', 'ПДВ', 'МАС=' are metadata — IGNORE them.\n\n" +
+            "## Output structure\n" +
             "{\n" +
-            "  \"storeName\": \"Name of the store\",\n" +
-            "  \"occurredAt\": \"ISO 8601 offset format, e.g. 2026-06-04T19:30:00+03:00. Extract correct date and time from receipt. If not specified or incomplete, use the current time.\",\n" +
-            "  \"total\": 123.45,\n" +
-            "  \"currency\": \"UAH or USD or EUR. Default to UAH.\",\n" +
+            "  \"storeName\": \"Name of the store (from the top of the receipt)\",\n" +
+            "  \"occurredAt\": \"ISO 8601 with UTC offset, e.g. 2026-06-03T10:35:00+03:00. Use the date and time printed on the receipt.\",\n" +
+            "  \"total\": 70.40,\n" +
+            "  \"currency\": \"UAH\",\n" +
             "  \"items\": [\n" +
             "    {\n" +
-            "      \"name\": \"Item name (e.g. Молоко 2.5%)\",\n" +
+            "      \"name\": \"Clean human-readable item name\",\n" +
             "      \"quantity\": 1.0,\n" +
-            "      \"unit\": \"unit of measurement (e.g. шт, кг, л, or null if none)\",\n" +
-            "      \"unitPrice\": 45.99,\n" +
-            "      \"totalPrice\": 45.99\n" +
+            "      \"unit\": \"шт (or кг, л, etc., or null)\",\n" +
+            "      \"unitPrice\": 29.90,\n" +
+            "      \"totalPrice\": 29.90\n" +
             "    }\n" +
             "  ]\n" +
-            "}\n" +
-            "Make sure to clean up item names from duplicates or OCR noise. " +
-            "Verify that item quantity multiplied by unitPrice roughly equals totalPrice. " +
-            "Do not include discounts or taxes as separate items; apply discounts to item prices if possible, or adjust total. " +
-            "Return only the valid JSON response, without markdown code block formatting.";
+            "}\n\n" +
+            "## Rules\n" +
+            "- Each 'QUANTITY X UNIT_PRICE =' line belongs to the NEXT item name that follows it (skipping Код УКТЗЕД / Штрих код lines).\n" +
+            "- Verify: quantity × unitPrice ≈ totalPrice. If they don't match, reconsider which multiplier line belongs to which item.\n" +
+            "- The total in the JSON must equal the 'Сума' value on the receipt.\n" +
+            "- Do NOT include 'ПРОГРАМА ЛОЯЛЬНОСТІ', bonuses, tax rows, or payment method rows as items.\n" +
+            "- Shorten overly long technical suffixes like 'ЦЕ-Б-ПАК', 'д/п' etc. only if they appear to be store codes; keep meaningful parts of the name.\n" +
+            "- Return only the JSON object — no markdown code block.";
+
 
         var requestBody = new
         {
