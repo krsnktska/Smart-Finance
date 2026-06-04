@@ -34,7 +34,7 @@ public class ReceiptService(
             var text = await ocrService.ExtractTextAsync(stream);
             logger.LogInformation("OCR extracted text ({Chars} chars) for account {AccountId}", text.Length, accountId);
 
-            var parsed = parserService.Parse(text);
+            var parsed = await parserService.ParseAsync(text);
             return await CreateResponseFromParsed(parsed, accountId, userId, "Сканування фото чека");
         }
         catch (Exception ex)

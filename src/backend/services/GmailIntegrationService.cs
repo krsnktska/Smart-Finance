@@ -148,11 +148,10 @@ public class GmailIntegrationService(
                         results.Add(transaction);
                 }
 
-                // Also parse inline text receipts from email body
                 var body = GetEmailBody(msg);
                 if (!string.IsNullOrEmpty(body) && receiptUrls.Count == 0)
                 {
-                    var parsed = parserService.Parse(body);
+                    var parsed = await parserService.ParseAsync(body);
                     if (parsed.Total > 0)
                     {
                         var categoryIds = await aiService.CategorizeItemsAsync(parsed.Items, categories);

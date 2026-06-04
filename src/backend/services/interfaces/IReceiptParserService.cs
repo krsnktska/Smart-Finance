@@ -4,5 +4,5 @@ namespace SmartFinance.Services.Interfaces;
 
 public interface IReceiptParserService
 {
-    ParsedReceipt Parse(string ocrText);
+    Task<ParsedReceipt> ParseAsync(string ocrText);
 }
