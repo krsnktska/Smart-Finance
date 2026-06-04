@@ -37,7 +37,7 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         {
             Id = Guid.NewGuid(),
             Name = request.Name,
-            UserGroups = [new UserGroup { UserId = userId, IsOwner = true, CanView = true, CanWrite = true }]
+            UserGroups = [new UserGroup { UserId = userId, IsOwner = true, CanView = null, CanWrite = null }]
         };
 
         context.Groups.Add(group);
@@ -128,7 +128,7 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         return ServiceResult.Ok();
     }
 
-    public async Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner, bool canView, bool canWrite)
+    public async Task<ServiceResult> UpdateMemberRoleAsync(Guid groupId, Guid currentUserId, Guid targetUserId, bool isOwner, bool? canView, bool? canWrite)
     {
         var group = await context.Groups
             .Include(g => g.UserGroups)
@@ -150,8 +150,8 @@ public class GroupService(SmartFinanceDbContext context) : IGroupService
         }
 
         targetMembership.IsOwner = isOwner;
-        targetMembership.CanView = isOwner || canView;
-        targetMembership.CanWrite = isOwner || canWrite;
+        targetMembership.CanView = isOwner ? null : (canView ?? true);
+        targetMembership.CanWrite = isOwner ? null : (canWrite ?? false);
         await context.SaveChangesAsync();
 
         return ServiceResult.Ok();

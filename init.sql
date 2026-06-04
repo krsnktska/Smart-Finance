@@ -50,8 +50,8 @@ CREATE TABLE user_groups (
     user_id   UUID    NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
     group_id  UUID    NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     is_owner  BOOLEAN NOT NULL DEFAULT FALSE,
-    can_view  BOOLEAN NOT NULL DEFAULT TRUE,
-    can_write BOOLEAN NOT NULL DEFAULT FALSE,
+    can_view  BOOLEAN DEFAULT TRUE,
+    can_write BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (user_id, group_id)
 );
 

@@ -96,7 +96,9 @@ public class GroupInvitationService(SmartFinanceDbContext context) : IGroupInvit
         {
             UserId = userId,
             GroupId = invitation.GroupId,
-            IsOwner = false
+            IsOwner = false,
+            CanView = true,
+            CanWrite = false
         });
 
         await context.SaveChangesAsync();

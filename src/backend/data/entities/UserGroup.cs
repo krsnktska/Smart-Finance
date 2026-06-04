@@ -16,13 +16,11 @@ public class UserGroup
     [Column("is_owner")]
     public bool IsOwner { get; set; }
 
-    [Required]
     [Column("can_view")]
-    public bool CanView { get; set; } = true;
+    public bool? CanView { get; set; }
 
-    [Required]
     [Column("can_write")]
-    public bool CanWrite { get; set; }
+    public bool? CanWrite { get; set; }
 
     public User User { get; set; } = null!;
     public Group Group { get; set; } = null!;
