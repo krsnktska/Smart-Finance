@@ -47,9 +47,11 @@ CREATE TABLE transactions (
 );
 
 CREATE TABLE user_groups (
-    user_id  UUID    NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-    group_id UUID    NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    is_owner BOOLEAN NOT NULL DEFAULT FALSE,
+    user_id   UUID    NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    group_id  UUID    NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    is_owner  BOOLEAN NOT NULL DEFAULT FALSE,
+    can_view  BOOLEAN NOT NULL DEFAULT TRUE,
+    can_write BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (user_id, group_id)
 );
 
@@ -109,14 +111,14 @@ CREATE TABLE bank_integrations (
 CREATE INDEX idx_bank_integrations
     ON bank_integrations (user_id, bank_type, bank_account_id);
 
-CREATE TYPE invitation_status AS ENUM ('Pending', 'Accepted', 'Declined', 'Cancelled');
+CREATE TYPE invitation_status AS ENUM ('pending', 'accepted', 'declined', 'cancelled');
 
 CREATE TABLE group_invitations (
     id                  UUID              PRIMARY KEY,
     group_id            UUID              NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     invited_user_id     UUID              NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     invited_by_user_id  UUID              NOT NULL REFERENCES users(id),
-    status              invitation_status NOT NULL DEFAULT 'Pending',
+    status              invitation_status NOT NULL DEFAULT 'pending',
     created_at          TIMESTAMPTZ       NOT NULL DEFAULT now(),
     responded_at        TIMESTAMPTZ
 );
