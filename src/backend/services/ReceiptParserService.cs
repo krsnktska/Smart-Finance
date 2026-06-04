@@ -16,12 +16,12 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
     [GeneratedRegex(@"^(.+?)\s+([\d,\.]+)\s*[a-zA-Zа-яА-Я]?\s*$")]
     private static partial Regex SimpleItemLineRegex();
 
-    // Matches multiplier line (e.g. 1 x 67.50)
-    [GeneratedRegex(@"^\s*([\d,\.]+)\s*[xX*]\s*([\d,\.]+)\s*$")]
+    // Matches multiplier line (e.g. 1 x 67.50 = )
+    [GeneratedRegex(@"^\s*([\d,\.]+)\s*[xX*]\s*([\d,\.]+)\s*=?\s*$")]
     private static partial Regex MultiplierLineRegex();
 
-    // Matches total line
-    [GeneratedRegex(@"(?:СУМА|РАЗОМ|TOTAL|ПІДСУМОК|ДО\s*СПЛАТИ|CYMA|CUMA)\s*:?\s*([\d\s,\.]+)", RegexOptions.IgnoreCase)]
+    // Matches total line with support for homoglyphs
+    [GeneratedRegex(@"(?:[СCсc][УУYUyуyu][МMмm][АAаa]|[РPрp][АAаa][ЗZзz][ОOоo][МMмm]|TOTAL|ПІДСУМОК|ДО\s*[СПЛАТИсc]+)\s*:?\s*([\d\s,\.]+)", RegexOptions.IgnoreCase)]
     private static partial Regex TotalRegex();
 
     // Matches date patterns: 25.12.2024 or 25/12/2024 or 2024-12-25
@@ -198,7 +198,7 @@ public partial class ReceiptParserService(ILogger<ReceiptParserService> logger) 
                 var name = simple.Groups[1].Value.Trim();
                 var price = ParseDecimal(simple.Groups[2].Value);
 
-                if (price > 0 && price < receiptTotal * 1.5m && name.Length > 2 && !name.All(char.IsDigit))
+                if (price > 0 && (receiptTotal == 0 || price < receiptTotal * 1.5m) && name.Length > 2 && !name.All(char.IsDigit))
                 {
                     // When inside a multiplier block and the matched price is far below the unit price,
                     // this line is a continuation of a split product name (e.g. "200 мл" split as "20" + "0 мл")

@@ -17,8 +17,13 @@ public class ReceiptService(
 {
     public async Task<ServiceResult<ReceiptScanResponse>> ScanPhotoAsync(IFormFile image, Guid accountId, Guid userId)
     {
-        var accountBelongsToUser = await context.Accounts.AnyAsync(a => a.Id == accountId && a.UserId == userId);
-        if (!accountBelongsToUser) return ServiceResult<ReceiptScanResponse>.Forbidden();
+        var hasWriteAccess = await context.Accounts
+            .AnyAsync(a => a.Id == accountId && (
+                a.UserId == userId ||
+                a.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanWrite == true)))
+            ));
+
+        if (!hasWriteAccess) return ServiceResult<ReceiptScanResponse>.Forbidden();
 
         if (image.Length == 0)
             return ServiceResult<ReceiptScanResponse>.BadRequest();
@@ -41,8 +46,13 @@ public class ReceiptService(
 
     public async Task<ServiceResult<ReceiptScanResponse>> ScrapeUrlAsync(ScrapeReceiptRequest request, Guid userId)
     {
-        var accountBelongsToUser = await context.Accounts.AnyAsync(a => a.Id == request.AccountId && a.UserId == userId);
-        if (!accountBelongsToUser) return ServiceResult<ReceiptScanResponse>.Forbidden();
+        var hasWriteAccess = await context.Accounts
+            .AnyAsync(a => a.Id == request.AccountId && (
+                a.UserId == userId ||
+                a.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanWrite == true)))
+            ));
+
+        if (!hasWriteAccess) return ServiceResult<ReceiptScanResponse>.Forbidden();
 
         var parsed = await scraperService.ScrapeAsync(request.Url);
         if (parsed is null)
