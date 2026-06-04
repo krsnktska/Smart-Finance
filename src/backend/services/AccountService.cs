@@ -17,9 +17,17 @@ public class AccountService(SmartFinanceDbContext context) : IAccountService
     public async Task<ServiceResult<AccountResponse>> GetByIdAsync(Guid id, Guid userId)
     {
         var account = await context.Accounts
-            .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+            .Include(a => a.AccountGroups)
+                .ThenInclude(ag => ag.Group)
+                    .ThenInclude(g => g.UserGroups)
+            .FirstOrDefaultAsync(a => a.Id == id);
 
         if (account is null) return ServiceResult<AccountResponse>.NotFound();
+
+        var hasAccess = account.UserId == userId ||
+                        account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanView == true)));
+
+        if (!hasAccess) return ServiceResult<AccountResponse>.NotFound();
 
         return ServiceResult<AccountResponse>.Ok(
             new AccountResponse(account.Id, account.Name, account.Currency, account.UserId));

@@ -11,9 +11,17 @@ public class StatisticsService(SmartFinanceDbContext context) : IStatisticsServi
         Guid accountId, Guid userId, DateTimeOffset? from, DateTimeOffset? to)
     {
         var account = await context.Accounts
-            .FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
+            .Include(a => a.AccountGroups)
+                .ThenInclude(ag => ag.Group)
+                    .ThenInclude(g => g.UserGroups)
+            .FirstOrDefaultAsync(a => a.Id == accountId);
 
         if (account is null) return ServiceResult<AccountSummaryResponse>.NotFound();
+
+        var hasAccess = account.UserId == userId ||
+                        account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanView == true)));
+
+        if (!hasAccess) return ServiceResult<AccountSummaryResponse>.NotFound();
 
         var fromUtc = from.HasValue ? new DateTimeOffset(from.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
         var toUtc = to.HasValue ? new DateTimeOffset(to.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
@@ -40,9 +48,17 @@ public class StatisticsService(SmartFinanceDbContext context) : IStatisticsServi
         Guid accountId, Guid userId, DateTimeOffset? from, DateTimeOffset? to)
     {
         var account = await context.Accounts
-            .FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
+            .Include(a => a.AccountGroups)
+                .ThenInclude(ag => ag.Group)
+                    .ThenInclude(g => g.UserGroups)
+            .FirstOrDefaultAsync(a => a.Id == accountId);
 
         if (account is null) return ServiceResult<List<CategorySpendingResponse>>.NotFound();
+
+        var hasAccess = account.UserId == userId ||
+                        account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanView == true)));
+
+        if (!hasAccess) return ServiceResult<List<CategorySpendingResponse>>.NotFound();
 
         var fromUtc = from.HasValue ? new DateTimeOffset(from.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;
         var toUtc = to.HasValue ? new DateTimeOffset(to.Value.UtcDateTime, TimeSpan.Zero) : (DateTimeOffset?)null;

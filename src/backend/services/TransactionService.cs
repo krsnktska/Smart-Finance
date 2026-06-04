@@ -10,10 +10,13 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
 {
     public async Task<ServiceResult<List<TransactionResponse>>> GetAllAsync(Guid accountId, Guid userId)
     {
-        var accountBelongsToUser = await context.Accounts
-            .AnyAsync(a => a.Id == accountId && a.UserId == userId);
+        var hasAccess = await context.Accounts
+            .AnyAsync(a => a.Id == accountId && (
+                a.UserId == userId ||
+                a.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanView == true)))
+            ));
 
-        if (!accountBelongsToUser) return ServiceResult<List<TransactionResponse>>.Forbidden();
+        if (!hasAccess) return ServiceResult<List<TransactionResponse>>.Forbidden();
 
         var transactions = await context.Transactions
             .Where(t => t.AccountId == accountId)
@@ -28,21 +31,32 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
     {
         var transaction = await context.Transactions
             .Include(t => t.Account)
+                .ThenInclude(a => a.AccountGroups)
+                    .ThenInclude(ag => ag.Group)
+                        .ThenInclude(g => g.UserGroups)
             .Include(t => t.TransactionCategories)
                 .ThenInclude(tc => tc.Category)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction is null) return ServiceResult<TransactionResponse>.NotFound();
+
+        var hasAccess = transaction.Account.UserId == userId ||
+                        transaction.Account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanView == true)));
+
+        if (!hasAccess) return ServiceResult<TransactionResponse>.NotFound();
 
         return ServiceResult<TransactionResponse>.Ok(MapTransaction(transaction));
     }
 
     public async Task<ServiceResult<TransactionResponse>> CreateAsync(CreateTransactionRequest request, Guid userId)
     {
-        var accountBelongsToUser = await context.Accounts
-            .AnyAsync(a => a.Id == request.AccountId && a.UserId == userId);
+        var hasWriteAccess = await context.Accounts
+            .AnyAsync(a => a.Id == request.AccountId && (
+                a.UserId == userId ||
+                a.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanWrite == true)))
+            ));
 
-        if (!accountBelongsToUser) return ServiceResult<TransactionResponse>.Forbidden();
+        if (!hasWriteAccess) return ServiceResult<TransactionResponse>.Forbidden();
 
         var transaction = new Transaction
         {
@@ -80,11 +94,19 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
     {
         var transaction = await context.Transactions
             .Include(t => t.Account)
+                .ThenInclude(a => a.AccountGroups)
+                    .ThenInclude(ag => ag.Group)
+                        .ThenInclude(g => g.UserGroups)
             .Include(t => t.TransactionCategories)
                 .ThenInclude(tc => tc.Category)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId);
+            .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction is null) return ServiceResult<TransactionResponse>.NotFound();
+
+        var hasWriteAccess = transaction.Account.UserId == userId ||
+                             transaction.Account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanWrite == true)));
+
+        if (!hasWriteAccess) return ServiceResult<TransactionResponse>.NotFound();
 
         if (request.Type.HasValue) transaction.Type = request.Type.Value;
         if (request.SpecialType.HasValue) transaction.SpecialType = request.SpecialType;
@@ -117,9 +139,17 @@ public class TransactionService(SmartFinanceDbContext context) : ITransactionSer
     {
         var transaction = await context.Transactions
             .Include(t => t.Account)
-            .FirstOrDefaultAsync(t => t.Id == id && t.Account.UserId == userId);
+                .ThenInclude(a => a.AccountGroups)
+                    .ThenInclude(ag => ag.Group)
+                        .ThenInclude(g => g.UserGroups)
+            .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction is null) return ServiceResult.NotFound();
+
+        var hasWriteAccess = transaction.Account.UserId == userId ||
+                             transaction.Account.AccountGroups.Any(ag => ag.Group.UserGroups.Any(ug => ug.UserId == userId && (ug.IsOwner || ug.CanWrite == true)));
+
+        if (!hasWriteAccess) return ServiceResult.NotFound();
 
         context.Transactions.Remove(transaction);
         await context.SaveChangesAsync();
