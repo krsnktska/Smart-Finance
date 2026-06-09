@@ -38,6 +38,18 @@ public class UserService(SmartFinanceDbContext context) : IUserService
         return ServiceResult<UserResponse>.Ok(new UserResponse(user.Id, user.Name, user.Email, user.Birthday));
     }
 
+    public async Task<ServiceResult> DeleteAsync(Guid userId)
+    {
+        var user = await context.Users.FindAsync(userId);
+
+        if (user is null) return ServiceResult.NotFound();
+
+        context.Users.Remove(user);
+        await context.SaveChangesAsync();
+
+        return ServiceResult.Ok();
+    }
+
     public async Task<ServiceResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
     {
         var user = await context.Users.FindAsync(userId);

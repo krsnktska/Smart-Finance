@@ -106,6 +106,27 @@ public class UsersController(IUserService userService) : ControllerBase
         };
     }
 
+    /// <summary>
+    /// Deletes the currently authenticated user's account and all associated data.
+    /// </summary>
+    /// <response code="204">Account deleted successfully.</response>
+    /// <response code="401">User is not authenticated.</response>
+    /// <response code="404">User not found.</response>
+    [HttpDelete("me")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteMe()
+    {
+        var result = await userService.DeleteAsync(GetCurrentUserId());
+        return result.Status switch
+        {
+            ServiceStatus.Ok => NoContent(),
+            ServiceStatus.NotFound => NotFound(new { message = "User profile not found." }),
+            _ => StatusCode(500, new { message = "An unexpected error occurred." })
+        };
+    }
+
     private Guid GetCurrentUserId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

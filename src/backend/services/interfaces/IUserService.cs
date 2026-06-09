@@ -9,4 +9,5 @@ public interface IUserService
     Task<ServiceResult<UserResponse>> FindByEmailAsync(string email);
     Task<ServiceResult<UserResponse>> UpdateAsync(Guid userId, UpdateUserRequest request);
     Task<ServiceResult> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+    Task<ServiceResult> DeleteAsync(Guid userId);
 }
