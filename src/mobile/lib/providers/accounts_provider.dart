@@ -49,13 +49,10 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
   Future<void> loadAccounts() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      // Load personal accounts
       final accounts = await accountRepository.getAll();
 
-      // Ensure groups are loaded first
       await ref.read(groupsProvider.notifier).loadGroups();
 
-      // Load group accounts
       final groupsState = ref.read(groupsProvider);
       List<AccountModel> groupAccounts = [];
 
@@ -64,7 +61,6 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
           final groupAccountsList = await ref
               .read(groupsProvider.notifier)
               .getGroupAccounts(group.id);
-          // Add group information to each account
           groupAccounts.addAll(
             groupAccountsList.map((acc) {
               return AccountModel(
@@ -78,12 +74,10 @@ class AccountsNotifier extends StateNotifier<AccountsState> {
             }),
           );
         } catch (e) {
-          // Skip this group if there's an error loading its accounts
           continue;
         }
       }
 
-      // Combine personal and group accounts, preferring group representation when duplicate ids exist
       final accountMap = <String, AccountModel>{};
       for (final account in accounts) {
         accountMap[account.id] = account;
@@ -194,3 +188,12 @@ final categorySpendingProvider =
         to: params.to,
       );
     });
+
+final accountTotalBalanceProvider = FutureProvider.family<double, String>((
+  ref,
+  accountId,
+) async {
+  final accountRepository = ref.watch(accountRepositoryProvider);
+  final summary = await accountRepository.getSummary(accountId: accountId);
+  return summary.balance;
+});

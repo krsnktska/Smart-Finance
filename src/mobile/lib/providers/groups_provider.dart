@@ -155,6 +155,8 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     required String groupId,
     required String userId,
     required bool isOwner,
+    bool canView = true,
+    bool canWrite = false,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -162,6 +164,8 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
         groupId: groupId,
         userId: userId,
         isOwner: isOwner,
+        canView: canView,
+        canWrite: canWrite,
       );
       state = state.copyWith(isLoading: false);
       return true;

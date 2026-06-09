@@ -9,6 +9,13 @@ final bankIntegrationRepositoryProvider = Provider((ref) {
   return BankIntegrationRepository(apiClient: apiClient);
 });
 
+final allBankIntegrationsProvider = FutureProvider<List<BankIntegrationModel>>((
+  ref,
+) async {
+  final repository = ref.watch(bankIntegrationRepositoryProvider);
+  return repository.getMonobankIntegrations();
+});
+
 final bankIntegrationsProvider =
     StateNotifierProvider<BankIntegrationNotifier, BankIntegrationState>((ref) {
       final repository = ref.watch(bankIntegrationRepositoryProvider);

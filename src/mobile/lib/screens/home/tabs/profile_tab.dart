@@ -31,10 +31,7 @@ class ProfileTab extends ConsumerWidget {
           ),
           const Expanded(
             child: TabBarView(
-              children: [
-                _ProfileSubTab(),
-                _IntegrationsSubTab(),
-              ],
+              children: [_ProfileSubTab(), _IntegrationsSubTab()],
             ),
           ),
         ],
@@ -42,8 +39,6 @@ class ProfileTab extends ConsumerWidget {
     );
   }
 }
-
-// ─── Profile sub-tab ──────────────────────────────────────────────────────────
 
 class _ProfileSubTab extends ConsumerWidget {
   const _ProfileSubTab();
@@ -145,8 +140,9 @@ class _ProfileSubTab extends ConsumerWidget {
                   data: (invitations) => invitations.isNotEmpty
                       ? Badge(
                           label: Text('${invitations.length}'),
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                         )
                       : const Icon(Icons.check_circle_outline),
                   orElse: () => const SizedBox(
@@ -227,7 +223,9 @@ class _ProfileSubTab extends ConsumerWidget {
                                               content: const Text(
                                                 'Unable to decline invitation',
                                               ),
-                                              backgroundColor: Theme.of(context).colorScheme.error,
+                                              backgroundColor: Theme.of(
+                                                context,
+                                              ).colorScheme.error,
                                             ),
                                           );
                                         }
@@ -241,7 +239,9 @@ class _ProfileSubTab extends ConsumerWidget {
                                             .read(invitationsProvider.notifier)
                                             .acceptInvite(invite.id);
                                         if (!context.mounted) return;
-                                        final cs = Theme.of(context).colorScheme;
+                                        final cs = Theme.of(
+                                          context,
+                                        ).colorScheme;
                                         if (success) {
                                           ScaffoldMessenger.of(
                                             context,
@@ -304,24 +304,88 @@ class _ProfileSubTab extends ConsumerWidget {
             context,
           ).colorScheme.errorContainer.withValues(alpha: 0.2),
           elevation: 0,
-          child: ListTile(
-            leading: Icon(
-              Icons.logout,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(
-              'Sign Out',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-                fontWeight: FontWeight.bold,
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.logout,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Sign Out',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () async {
+                  await ref.read(authProvider.notifier).logout();
+                },
               ),
-            ),
-            onTap: () async {
-              await ref.read(authProvider.notifier).logout();
-            },
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  Icons.delete_forever,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+                subtitle: const Text('Permanently remove your account'),
+                onTap: () => _showDeleteAccountDialog(context, ref),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext outerContext, WidgetRef ref) {
+    showDialog(
+      context: outerContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This will permanently delete your account and all your data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final success = await ref
+                  .read(userProvider.notifier)
+                  .deleteAccount();
+              if (success) {
+                await ref.read(authProvider.notifier).logout();
+              } else {
+                if (!outerContext.mounted) return;
+                final error = ref.read(userProvider).error;
+                ScaffoldMessenger.of(outerContext).showSnackBar(
+                  SnackBar(
+                    content: Text(error ?? 'Failed to delete account'),
+                    backgroundColor:
+                        Theme.of(outerContext).colorScheme.error,
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -509,8 +573,6 @@ class _ProfileSubTab extends ConsumerWidget {
   }
 }
 
-// ─── Integrations sub-tab ─────────────────────────────────────────────────────
-
 class _IntegrationsSubTab extends ConsumerStatefulWidget {
   const _IntegrationsSubTab();
 
@@ -538,13 +600,18 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
     final gmailState = ref.watch(gmailIntegrationProvider);
     final accountsState = ref.watch(accountsProvider);
 
-    final personalAccounts =
-        accountsState.accounts.where((a) => a.groupId == null).toList();
+    final personalAccounts = accountsState.accounts
+        .where((a) => a.groupId == null)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildMonobankSection(bankState, personalAccounts, accountsState.isLoading),
+        _buildMonobankSection(
+          bankState,
+          personalAccounts,
+          accountsState.isLoading,
+        ),
         const SizedBox(height: 16),
         _buildGmailSection(gmailState, personalAccounts),
       ],
@@ -604,11 +671,17 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                             integration.lastSyncedAt != null
                                 ? 'Connected · Last sync: ${_formatDate(integration.lastSyncedAt!)}'
                                 : 'Connected · Never synced',
-                            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           )
                         : Text(
                             'Not connected',
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
                           ),
                     trailing: integration != null
                         ? PopupMenuButton<String>(
@@ -769,7 +842,9 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                 const SizedBox(height: 8),
                 Text(
                   gmailState.message!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ],
               const SizedBox(height: 12),
@@ -779,8 +854,8 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                     child: ElevatedButton(
                       onPressed:
                           gmailState.isLoading || personalAccounts.isEmpty
-                              ? null
-                              : () => _connectGmail(personalAccounts),
+                          ? null
+                          : () => _connectGmail(personalAccounts),
                       child: Text(
                         connected ? 'Reconnect Gmail' : 'Connect Gmail',
                       ),
@@ -789,7 +864,8 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: connected &&
+                      onPressed:
+                          connected &&
                               !gmailState.isScanning &&
                               personalAccounts.isNotEmpty
                           ? () => _scanGmail(personalAccounts)
@@ -831,7 +907,8 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
     if (!mounted) return;
     if (success) {
       final message =
-          ref.read(bankIntegrationsProvider).message ?? 'Monobank sync completed.';
+          ref.read(bankIntegrationsProvider).message ??
+          'Monobank sync completed.';
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(message), backgroundColor: cs.primary),
       );
@@ -840,10 +917,10 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
       final errorMsg = rawError.contains('429') || rawError.contains('Too Many')
           ? 'Monobank rate limit: wait 60 sec and try again.'
           : rawError.contains('400') || rawError.contains('Bad Request')
-              ? 'Monobank rejected the request. Token may be expired — try reconnecting.'
-              : rawError.isNotEmpty
-                  ? rawError
-                  : 'Failed to sync Monobank.';
+          ? 'Monobank rejected the request. Token may be expired — try reconnecting.'
+          : rawError.isNotEmpty
+          ? rawError
+          : 'Failed to sync Monobank.';
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(errorMsg), backgroundColor: cs.error),
       );
@@ -934,6 +1011,35 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                       hintText: 'Enter your Monobank API token',
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Get your token at ',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                      GestureDetector(
+                        onTap: () => launchUrl(
+                          Uri.parse('https://api.monobank.ua/'),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                        child: const Text(
+                          'api.monobank.ua',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: isLoading
@@ -959,7 +1065,8 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                               });
                             } catch (e) {
                               setState(() {
-                                fetchError = 'Failed to load Monobank accounts.';
+                                fetchError =
+                                    'Failed to load Monobank accounts.';
                                 monoAccounts = [];
                                 selectedMonoAccount = null;
                                 hasLoaded = true;
@@ -1029,7 +1136,8 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: isLoading ||
+                  onPressed:
+                      isLoading ||
                           monoAccounts.isEmpty ||
                           selectedMonoAccount == null
                       ? null
@@ -1053,8 +1161,7 @@ class _IntegrationsSubTabState extends ConsumerState<_IntegrationsSubTab> {
                                     ? 'Monobank connected successfully.'
                                     : 'Failed to connect Monobank.',
                               ),
-                              backgroundColor:
-                                  success ? cs.primary : cs.error,
+                              backgroundColor: success ? cs.primary : cs.error,
                             ),
                           );
                         },

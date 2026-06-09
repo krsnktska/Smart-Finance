@@ -51,14 +51,11 @@ class CategoriesTab extends ConsumerWidget {
               ),
             )
           else if (categoriesState.categories.isEmpty)
-            // Нам нужно заполнить оставшееся пространство внутри ListView
             SizedBox(
-              // Вычисляем высоту: берем высоту экрана и вычитаем примерно 200px на верхний Row и отступы
               height: MediaQuery.of(context).size.height - 250,
               child: Center(
                 child: Column(
-                  mainAxisSize:
-                      MainAxisSize.min, // Выравниваем элементы внутри колонки
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.category_outlined,

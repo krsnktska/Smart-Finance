@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/models/account_model.dart';
+import 'package:mobile/models/group_member_model.dart';
 import 'package:mobile/models/user_model.dart';
 import 'package:mobile/providers/accounts_provider.dart';
 import 'package:mobile/providers/groups_provider.dart';
@@ -251,6 +252,87 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _editPermissions(
+    String userId,
+    String userName,
+    GroupMemberModel member,
+  ) async {
+    bool canView = member.canView;
+    bool canWrite = member.canWrite;
+    final cs = Theme.of(context).colorScheme;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Permissions: $userName'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                value: canView,
+                onChanged: (v) => setState(() => canView = v),
+                title: const Text('Can view wallet'),
+                subtitle: const Text('See transactions and balance'),
+                secondary: Icon(Icons.visibility_outlined, color: cs.primary),
+                contentPadding: EdgeInsets.zero,
+              ),
+              SwitchListTile(
+                value: canWrite,
+                onChanged: canView ? (v) => setState(() => canWrite = v) : null,
+                title: const Text('Can write'),
+                subtitle: const Text('Add and edit transactions'),
+                secondary: Icon(Icons.edit_outlined, color: cs.secondary),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await ref
+        .read(groupsProvider.notifier)
+        .updateMemberRole(
+          groupId: widget.groupId,
+          userId: userId,
+          isOwner: member.isOwner,
+          canView: canView,
+          canWrite: canWrite,
+        );
+
+    if (success) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Permissions updated for $userName'),
+          backgroundColor: cs.primary,
+        ),
+      );
+      ref.read(groupsProvider.notifier).loadGroups();
+    } else {
+      final error = ref.read(groupsProvider).error;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Failed to update permissions'),
+          backgroundColor: cs.error,
+        ),
+      );
+    }
   }
 
   Future<void> _updateRole(String userId, String userName, bool promote) async {
@@ -618,6 +700,32 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (!member.isOwner) ...[
+                        Tooltip(
+                          message: member.canView ? 'Can view' : 'No view',
+                          child: Icon(
+                            member.canView
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 16,
+                            color: member.canView
+                                ? cs.primary
+                                : cs.onSurface.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: member.canWrite ? 'Can write' : 'Read only',
+                          child: Icon(
+                            member.canWrite ? Icons.edit : Icons.edit_off,
+                            size: 16,
+                            color: member.canWrite
+                                ? cs.secondary
+                                : cs.onSurface.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -652,6 +760,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                               _updateRole(member.userId, member.name, true);
                             } else if (val == 'demote') {
                               _updateRole(member.userId, member.name, false);
+                            } else if (val == 'permissions') {
+                              _editPermissions(
+                                member.userId,
+                                member.name,
+                                member,
+                              );
                             } else if (val == 'remove') {
                               _removeMember(member.userId, member.name);
                             }
@@ -688,6 +802,20 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> {
                                 ),
                               ),
                             if (!member.isOwner) ...[
+                              PopupMenuItem(
+                                value: 'permissions',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.tune,
+                                      size: 18,
+                                      color: cs.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('Edit Permissions'),
+                                  ],
+                                ),
+                              ),
                               const PopupMenuDivider(),
                               PopupMenuItem(
                                 value: 'remove',

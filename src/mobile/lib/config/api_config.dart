@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'https://smart-finance-n9n4.onrender.com/api';
+  static const String baseUrl = 'https://smart-finance-1-yrin.onrender.com/api';
 
   // Timeouts
   static const Duration connectTimeout = Duration(seconds: 60);

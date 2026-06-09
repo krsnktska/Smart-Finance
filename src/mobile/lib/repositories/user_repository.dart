@@ -52,4 +52,8 @@ class UserRepository {
       data: {'currentPassword': currentPassword, 'newPassword': newPassword},
     );
   }
+
+  Future<void> deleteMe() async {
+    await apiClient.delete('${ApiConfig.users}/me');
+  }
 }

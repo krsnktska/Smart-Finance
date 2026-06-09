@@ -13,22 +13,26 @@ class TransactionsState {
   final List<TransactionModel> transactions;
   final bool isLoading;
   final String? error;
+  final bool isAccessDenied;
 
   TransactionsState({
     this.transactions = const [],
     this.isLoading = false,
     this.error,
+    this.isAccessDenied = false,
   });
 
   TransactionsState copyWith({
     List<TransactionModel>? transactions,
     bool? isLoading,
     String? error,
+    bool? isAccessDenied,
   }) {
     return TransactionsState(
       transactions: transactions ?? this.transactions,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      isAccessDenied: isAccessDenied ?? this.isAccessDenied,
     );
   }
 }
@@ -56,7 +60,7 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
   }) : super(TransactionsState());
 
   Future<void> loadTransactions() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, isAccessDenied: false);
     try {
       final transactions = await transactionRepository.getAll(
         accountId: accountId,
@@ -66,7 +70,15 @@ class TransactionsNotifier extends StateNotifier<TransactionsState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (e is ApiException && e.statusCode == 403) {
+        state = state.copyWith(
+          isLoading: false,
+          isAccessDenied: true,
+          transactions: const [],
+        );
+      } else {
+        state = state.copyWith(isLoading: false, error: e.toString());
+      }
     }
   }
 

@@ -155,8 +155,7 @@ class ApiClient {
         '${error.requestOptions.method} ${error.requestOptions.path}';
     if (error.response != null) {
       final statusCode = error.response?.statusCode ?? 0;
-      final message =
-          error.response?.data?['message'] ?? error.message ?? 'Unknown error';
+      final message = _extractMessage(error.response?.data, statusCode);
       return ApiException(
         message: '$requestInfo -> $message',
         statusCode: statusCode,
@@ -166,16 +165,60 @@ class ApiClient {
       message: '$requestInfo -> ${error.message ?? 'Network error'}',
     );
   }
+
+  /// Extracts a human-readable message from various server error formats.
+  /// Handles ASP.NET validation errors, plain messages, and empty bodies.
+  static String _extractMessage(dynamic data, int statusCode) {
+    if (data is! Map) {
+      // Empty body or plain-text — use a generic status description.
+      return _statusDescription(statusCode);
+    }
+    // Try plain message field first.
+    if (data['message'] is String) return data['message'] as String;
+    // ASP.NET validation error: extract first validation message.
+    final errors = data['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final firstField = errors.values.first;
+      if (firstField is List && firstField.isNotEmpty) {
+        return firstField.first.toString();
+      }
+    }
+    // ASP.NET title (generic validation summary).
+    if (data['title'] is String) return data['title'] as String;
+    // Detail field (RFC 7807 / Problem Details).
+    if (data['detail'] is String) return data['detail'] as String;
+    return _statusDescription(statusCode);
+  }
+
+  static String _statusDescription(int code) {
+    switch (code) {
+      case 400: return 'Invalid request';
+      case 401: return 'Unauthorized';
+      case 403: return 'Access denied';
+      case 404: return 'Not found';
+      case 409: return 'Conflict';
+      case 422: return 'Unprocessable content';
+      case 500: return 'Server error';
+      default:  return 'Request failed (HTTP $code)';
+    }
+  }
 }
 
 class ApiException implements Exception {
-  final String message;
+  final String message; // "POST /auth/login -> Invalid email or password."
   final int? statusCode;
 
   ApiException({required this.message, this.statusCode});
 
+  /// Clean user-facing message — strips the "METHOD /path -> " prefix.
+  String get userMessage {
+    final idx = message.indexOf(' -> ');
+    return idx >= 0 ? message.substring(idx + 4) : message;
+  }
+
+  /// Returns the user-readable message (used when exception is shown in UI).
   @override
-  String toString() => 'ApiException: $message (Status: $statusCode)';
+  String toString() => userMessage;
 }
 
 class LoggingInterceptor extends QueuedInterceptor {

@@ -12,6 +12,7 @@ import 'package:mobile/screens/home.dart';
 import 'package:mobile/screens/splash_screen.dart';
 import 'package:mobile/providers/invitations_provider.dart';
 import 'package:mobile/providers/gmail_provider.dart';
+import 'package:mobile/utils/app_colors.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,13 +32,16 @@ final colorScheme = ColorScheme.fromSeed(
   onSecondary: Colors.black,
   tertiary: const Color.fromARGB(255, 176, 236, 11),
   onTertiary: Colors.black,
-  error: const Color.fromARGB(255, 255, 82, 82),
+  error: const Color.fromARGB(255, 133, 161, 106),
   onError: Colors.white,
 );
 
 final theme = ThemeData.dark().copyWith(
   colorScheme: colorScheme,
   scaffoldBackgroundColor: colorScheme.surface,
+  extensions: const [
+    AppColors(expense: Color(0xFFCF3030)),
+  ],
 );
 
 class MyApp extends ConsumerStatefulWidget {
@@ -143,7 +147,6 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         return;
       }
 
-      // Logout: was authenticated, now not (and not initializing)
       if (prev?.isAuthenticated == true &&
           !next.isAuthenticated &&
           !next.isInitializing) {

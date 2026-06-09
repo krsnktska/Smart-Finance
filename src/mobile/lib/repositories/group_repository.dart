@@ -96,10 +96,12 @@ class GroupRepository {
     required String groupId,
     required String userId,
     required bool isOwner,
+    bool canView = true,
+    bool canWrite = false,
   }) async {
     await apiClient.put(
       '${ApiConfig.groups}/$groupId/members/$userId/role',
-      data: {'isOwner': isOwner},
+      data: {'isOwner': isOwner, 'canView': canView, 'canWrite': canWrite},
     );
   }
 

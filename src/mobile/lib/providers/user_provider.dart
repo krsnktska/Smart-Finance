@@ -77,4 +77,16 @@ class UserNotifier extends StateNotifier<UserState> {
       return false;
     }
   }
+
+  Future<bool> deleteAccount() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await userRepository.deleteMe();
+      state = UserState(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
 }
