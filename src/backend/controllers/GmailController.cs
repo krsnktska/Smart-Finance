@@ -145,6 +145,7 @@ public class GmailController(IGmailIntegrationService gmailService) : Controller
     [HttpPost("scan")]
     [ProducesResponseType(typeof(List<ReceiptScanResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ScanInbox([FromQuery] Guid accountId)
@@ -155,6 +156,7 @@ public class GmailController(IGmailIntegrationService gmailService) : Controller
             ServiceStatus.Ok => Ok(result.Data),
             ServiceStatus.NotFound => NotFound(new { message = "Gmail integration not found. Please connect Gmail first." }),
             ServiceStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { message = "You do not own the target account." }),
+            ServiceStatus.Unauthorized => Unauthorized(new { message = "Gmail access has been revoked. Please reconnect your Gmail account." }),
             _ => BadRequest(new { message = "Failed to scan inbox." })
         };
     }

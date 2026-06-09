@@ -1,6 +1,7 @@
 using System.Text;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Services;
@@ -165,6 +166,13 @@ public class GmailIntegrationService(
             await context.SaveChangesAsync();
 
             return ServiceResult<List<ReceiptScanResponse>>.Ok(results);
+        }
+        catch (TokenResponseException ex) when (ex.Error.Error == "invalid_grant")
+        {
+            logger.LogWarning("Gmail token revoked or expired for user {UserId}, removing token record", userId);
+            context.GmailTokens.Remove(tokenRecord);
+            await context.SaveChangesAsync();
+            return ServiceResult<List<ReceiptScanResponse>>.Unauthorized();
         }
         catch (Exception ex)
         {
